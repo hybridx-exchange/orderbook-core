@@ -5,6 +5,7 @@ import "./interfaces/IWETH.sol";
 import "./interfaces/IUniswapV2Pair.sol";
 import "./interfaces/IOrderBook.sol";
 import './libraries/TransferHelper.sol';
+import "./libraries/Arrays.sol";
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
 import "./PriceList.sol";
@@ -12,6 +13,8 @@ import "./PriceList.sol";
 contract OrderBook is OrderQueue, PriceList {
     using SafeMath for uint;
     using SafeMath for uint112;
+    using Arrays for address[];
+    using Arrays for uint[];
 
     struct Order {
         address owner;
@@ -378,10 +381,8 @@ contract OrderBook is OrderQueue, PriceList {
         uint price,
         uint decimal,
         uint orderAmount)
-    external
+    internal
     returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
-        //先吃单再付款，需要保证只有pair可以调用
-        require(msg.sender == pair, 'UniswapV2 OrderBook: invalid sender');
         (amountIn, amountOutWithFee, accounts, amounts) =
         _getAmountAndTakePrice(direction, amountInOffer, price, decimal, orderAmount);
 
@@ -786,6 +787,8 @@ contract OrderBook is OrderQueue, PriceList {
     external
     view
     returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet){
+        //先吃单再付款，需要保证只有pair可以调用
+        require(msg.sender == pair, 'UniswapV2 OrderBook: invalid sender');
         (reserveInRet, reserveOutRet) = (reserveIn, reserveOut);
         uint tradeDir = tradeDirection(tokenIn);
         uint orderDir = ~tradeDir; // 订单方向与交易方向相反
@@ -874,7 +877,63 @@ contract OrderBook is OrderQueue, PriceList {
 
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
     external
-    returns (uint amountOutLeft, address[] memory accounts, uint[] memory amounts){
+    returns (uint amountAmmOut, address[] memory accounts, uint[] memory amounts) {
+        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, tokenIn,
+            tokenIn == baseToken ? quoteToken: baseToken);
+        //direction for tokenA swap to tokenB
+        uint direction = tradeDirection(tokenIn);
+        uint amountInLeft = amountIn;
 
+        (uint price, uint amount) = nextBook(~direction, 0); // 订单方向与交易方向相反
+        //只处理挂单，reserveIn/reserveOut只用来计算需要消耗的挂单数量和价格范围
+        while (price != 0) {
+            //先计算pair从当前价格到price消耗amountIn的数量
+            {
+                uint amountInUsed;
+                uint amountOutUsed;
+                (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
+                OrderBookLibrary.getAmountForMovePrice(
+                    direction,
+                    reserveIn,
+                    reserveOut,
+                    price,
+                    priceDecimal);
+                if (amountInUsed > amountInLeft) {
+                    amountAmmOut += OrderBookLibrary.getAmountOut(amountInLeft, reserveIn, reserveOut);
+                    amountInLeft = 0;
+                }
+                else {
+                    amountAmmOut += amountOutUsed;
+                    amountInLeft = amountInLeft - amountInUsed;
+                }
+
+                if (amountInLeft == 0) {
+                    break;
+                }
+            }
+
+            {
+                //消耗掉一个价格的挂单并返回实际需要的amountIn数量
+                (uint amountInForTake, uint amountOutWithFee, address[] memory _accounts, uint[] memory _amounts) =
+                    getAmountAndTakePrice(to, ~direction, amountInLeft, price, priceDecimal, amount);
+                amounts.extendUint(_amounts);
+                accounts.extendAddress(_accounts);
+                if (amountInLeft > amountInForTake) {
+                    amountInLeft = amountInLeft - amountInForTake;
+                    amountAmmOut += amountOutWithFee;
+                }
+                else { //amountIn消耗完了
+                    amountAmmOut += OrderBookLibrary.getAmountOut(amountInLeft, reserveIn, reserveOut);
+                    amountInLeft = 0;
+                    break;
+                }
+            }
+
+            (price, amount) = nextBook(~direction, price);
+        }
+
+        if (amountInLeft > 0) {
+            amountAmmOut +=  OrderBookLibrary.getAmountOut(amountInLeft, reserveIn, reserveOut);
+        }
     }
 }

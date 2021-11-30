@@ -40,6 +40,16 @@ library OrderBookLibrary {
         amountIn = (numerator / denominator).add(1);
     }
 
+    // fetches and sorts the reserves for a pair
+    function getReserves(address pair, address tokenA, address tokenB) internal view returns
+    (uint reserveA, uint reserveB) {
+        require(tokenA != tokenB, 'OrderBookLibrary: IDENTICAL_ADDRESSES');
+        address token0 = tokenA < tokenB ? tokenA : tokenB;
+        require(token0 != address(0), 'OrderBookLibrary: ZERO_ADDRESS');
+        (uint reserve0, uint reserve1,) = IUniswapV2Pair(pair).getReserves();
+        (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
+    }
+
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
     function getAmountForMovePrice(uint direction, uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
