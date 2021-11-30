@@ -49,21 +49,6 @@ interface IOrderBook {
     view
     returns (uint[] memory prices, uint[] memory amounts);
 
-    //下一个价格对应的订单薄-用于遍历所有订单薄
-    function nextBook(
-        uint direction,
-        uint curPrice)
-    external
-    view
-    returns (uint nextPrice, uint amount);
-
-    //根据tokenIn/tokenOut判断交易方向
-    function tradeDirection(
-        address tokenIn)
-    external
-    view
-    returns (uint);
-
     function getPrice()
     external
     view
