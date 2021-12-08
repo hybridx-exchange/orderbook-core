@@ -28,39 +28,28 @@ describe('HybridxOrderBook', () => {
   let token0: Contract
   let token1: Contract
   let pair: Contract
+  let orderBook: Contract
   let orderBookFactory: Contract
+  let tokenBase: Contract
+  let tokenQuote: Contract
   beforeEach(async () => {
     const fixture = await loadFixture(orderBookFixture)
     factory = fixture.factory
     token0 = fixture.token0
     token1 = fixture.token1
     pair = fixture.pair
+    orderBook = fixture.orderBook
     orderBookFactory = fixture.orderBookFactory
+    tokenBase = fixture.tokenA
+    tokenQuote = fixture.tokenB
   })
 
-  it('mint', async () => {
-    const token0Amount = expandTo18Decimals(1)
-    const token1Amount = expandTo18Decimals(4)
-    await token0.transfer(pair.address, token0Amount)
-    await token1.transfer(pair.address, token1Amount)
-
-    const expectedLiquidity = expandTo18Decimals(2)
-    await expect(pair.mint(wallet.address, overrides))
-        .to.emit(pair, 'Transfer')
-        .withArgs(AddressZero, AddressZero, MINIMUM_LIQUIDITY)
-        .to.emit(pair, 'Transfer')
-        .withArgs(AddressZero, wallet.address, expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-        .to.emit(pair, 'Sync')
-        .withArgs(token0Amount, token1Amount)
-        .to.emit(pair, 'Mint')
-        .withArgs(wallet.address, token0Amount, token1Amount)
-
-    expect(await pair.totalSupply()).to.eq(expectedLiquidity)
-    expect(await pair.balanceOf(wallet.address)).to.eq(expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-    expect(await token0.balanceOf(pair.address)).to.eq(token0Amount)
-    expect(await token1.balanceOf(pair.address)).to.eq(token1Amount)
-    const reserves = await pair.getReserves()
-    expect(reserves[0]).to.eq(token0Amount)
-    expect(reserves[1]).to.eq(token1Amount)
+  it('price', async () => {
+    console.log("price1:", (await orderBook.getPrice()).toString())
+    const swapAmount = expandTo18Decimals(1)
+    const expectedOutputAmount = bigNumberify('1662497915624478906')
+    await token0.transfer(pair.address, swapAmount)
+    await pair.swap(0, expectedOutputAmount, wallet.address, '0x', overrides)
+    console.log("price2:", (await orderBook.getPrice()).toString())
   })
 })

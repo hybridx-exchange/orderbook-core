@@ -141,7 +141,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     function getPrice()
-    internal
+    external
     view
     returns (uint price){
         (uint112 reserveBase, uint112 reserveQuote,) = getReserves();

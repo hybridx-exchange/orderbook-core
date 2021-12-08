@@ -58,8 +58,14 @@ export async function orderBookFixture(provider: Web3Provider, [wallet]: Wallet[
       expandTo18Decimals(1), expandTo18Decimals(1), overrides)
   const orderBookAddress = await orderBookFactory.getOrderBook(tokenA.address, tokenB.address)
   const orderBook = new Contract(orderBookAddress, JSON.stringify(OrderBook.abi), provider).connect(wallet)
-  const baseToken = await orderBook.baseToken()
-  const quoteToken = await orderBook.quoteToken()
+  const baseToken = new Contract(await orderBook.baseToken(), JSON.stringify(ERC20.abi), provider).connect(wallet)
+  const quoteToken = new Contract(await orderBook.quoteToken(), JSON.stringify(ERC20.abi), provider).connect(wallet)
+
+  const token0Amount = expandTo18Decimals(100)
+  const token1Amount = expandTo18Decimals(400)
+  await token0.transfer(pair.address, token0Amount)
+  await token1.transfer(pair.address, token1Amount)
+  await pair.mint(wallet.address, overrides)
 
   return { factory, orderBookFactory, token0, token1, pair, baseToken, quoteToken, orderBook, tokenA, tokenB }
 }

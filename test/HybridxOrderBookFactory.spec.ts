@@ -111,6 +111,6 @@ describe('HybridxOrderBookFactory', () => {
     const tx = await orderBookFactory.createOrderBook(...TEST_ADDRESSES,
         expandTo18Decimals(1), expandTo18Decimals(2))
     const receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(4592467)
+    expect(receipt.gasUsed).to.eq(4620529)
   })
 })
