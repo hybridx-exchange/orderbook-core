@@ -11,8 +11,10 @@ contract OrderBookFactory is IOrderBookFactory {
     address public WETH;
 
     event OrderBookCreated(
-        address indexed pair,
-        address indexed orderBook,
+        address pair,
+        address indexed baseToken,
+        address indexed quoteToken,
+        address orderBook,
         uint,
         uint);
 
@@ -44,7 +46,7 @@ contract OrderBookFactory is IOrderBookFactory {
         getOrderBook[token0][token1] = orderBook;
         getOrderBook[token1][token0] = orderBook;
         allOrderBooks.push(orderBook);
-        emit OrderBookCreated(pair, orderBook, priceStep, minAmount);
+        emit OrderBookCreated(pair, baseToken, quoteToken, orderBook, priceStep, minAmount);
     }
 
     function getCodeHash() external pure returns (bytes32) {
