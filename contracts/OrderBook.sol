@@ -556,6 +556,8 @@ contract OrderBook is OrderBookBase {
     returns (uint amountAmmOut, address[] memory accounts, uint[] memory amounts) {
         (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, tokenIn,
             tokenIn == baseToken ? quoteToken: baseToken);
+        require(msg.sender == pair, "UniswapV2 OrderBook: FORBIDDEN");
+
         //direction for tokenA swap to tokenB
         uint direction = tradeDirection(tokenIn);
         uint amountInLeft = amountIn;

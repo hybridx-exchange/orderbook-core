@@ -44,29 +44,47 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  it('create buy limit order', async () => {
-    console.log("price before:", (await orderBook.getPrice()).toString())
-    const minAmount = await orderBook.minAmount()
-    console.log("minAmount:", minAmount.toString())
-
-    const limitAmount = expandTo18Decimals(10)
-    console.log("limitAmount:", limitAmount.toString())
-    await tokenQuote.transfer(orderBook.address, limitAmount)
-
-    await expect(orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address))
-        .to.emit(orderBook, 'OrderCreated')
-        .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 1)
-
-    console.log("price after:", (await orderBook.getPrice()).toString())
-  })
-
-  it('swap (no limit order)', async () => {
+  it('swap:no limit order', async () => {
     console.log("price before:", (await orderBook.getPrice()).toString())
 
     const token0Amount = await token0.balanceOf(pair.address)
     const token1Amount = await token1.balanceOf(pair.address)
     const swapAmount = expandTo18Decimals(1)
     const expectedOutputAmount = bigNumberify('1662497915624478906')
+    await token0.transfer(pair.address, swapAmount)
+    await expect(pair.swap(0, expectedOutputAmount, wallet.address, '0x', overrides))
+        .to.emit(token1, 'Transfer')
+        .withArgs(pair.address, wallet.address, expectedOutputAmount)
+        .to.emit(pair, 'Sync')
+        .withArgs(token0Amount.add(swapAmount), token1Amount.sub(expectedOutputAmount))
+        .to.emit(pair, 'Swap')
+        .withArgs(wallet.address, swapAmount, 0, 0, expectedOutputAmount, wallet.address)
+
+    const reserves = await pair.getReserves()
+    expect(reserves[0]).to.eq(token0Amount.add(swapAmount))
+    expect(reserves[1]).to.eq(token1Amount.sub(expectedOutputAmount))
+    expect(await token0.balanceOf(pair.address)).to.eq(token0Amount.add(swapAmount))
+    expect(await token1.balanceOf(pair.address)).to.eq(token1Amount.sub(expectedOutputAmount))
+    const totalSupplyToken0 = await token0.totalSupply()
+    const totalSupplyToken1 = await token1.totalSupply()
+    expect(await token0.balanceOf(wallet.address)).to.eq(totalSupplyToken0.sub(token0Amount).sub(swapAmount))
+    expect(await token1.balanceOf(wallet.address)).to.eq(totalSupplyToken1.sub(token1Amount).add(expectedOutputAmount))
+
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })
+
+  it('swap:limit order price == current price, amount > swap amount', async () => {
+    console.log("price before:", (await orderBook.getPrice()).toString())
+
+    const limitAmount = expandTo18Decimals(3)
+    await tokenQuote.transfer(orderBook.address, limitAmount)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+
+    const token0Amount = await token0.balanceOf(pair.address)
+    const token1Amount = await token1.balanceOf(pair.address)
+    const swapAmount = expandTo18Decimals(1)
+    const expectedOutputAmount = bigNumberify('2000000000000000000')
+
     await token0.transfer(pair.address, swapAmount)
     await expect(pair.swap(0, expectedOutputAmount, wallet.address, '0x', overrides))
         .to.emit(token1, 'Transfer')
