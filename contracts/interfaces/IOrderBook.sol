@@ -30,7 +30,10 @@ interface IOrderBook {
     function cancelLimitOrder(uint orderId) external;
 
     //用户订单
-    function userOrders(address user) external view returns (uint[] memory orderIds);
+    function userOrders(address user, uint index) external view returns (uint orderId);
+
+    //用户订单
+    function getUserOrders(address user) external view returns (uint[] memory orderIds);
 
     //市场订单
     function marketOrder(uint orderId) external view returns (uint[] memory order);

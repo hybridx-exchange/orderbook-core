@@ -132,6 +132,10 @@ contract OrderBookBase is OrderQueue, PriceList {
         return orderIdGenerator;
     }
 
+    function getUserOrders(address user) external view returns (uint[] memory orderIds) {
+        orderIds = userOrders[user];
+    }
+
     function getReserves()
     internal
     view

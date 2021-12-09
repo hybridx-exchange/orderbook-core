@@ -57,6 +57,12 @@ describe('HybridxOrderBook', () => {
         .to.emit(orderBook, 'OrderCreated')
         .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 1)
 
+    console.log("order:", await orderBook.marketOrders(1))
+    console.log("market book:", await orderBook.marketBook(1, 1))
+    console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
+    console.log("user order:", await orderBook.userOrders(wallet.address, 0))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
     console.log("price after:", (await orderBook.getPrice()).toString())
   })
 
