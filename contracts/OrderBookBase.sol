@@ -1,6 +1,7 @@
 pragma solidity =0.5.16;
 
 import "./interfaces/IERC20.sol";
+import "./libraries/UQ112x112.sol";
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
 import "./PriceList.sol";
@@ -8,6 +9,7 @@ import "./PriceList.sol";
 contract OrderBookBase is OrderQueue, PriceList {
     using SafeMath for uint;
     using SafeMath for uint112;
+    using UQ112x112 for uint224;
 
     struct Order {
         address owner;

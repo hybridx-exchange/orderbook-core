@@ -105,12 +105,4 @@ describe('HybridxOrderBookFactory', () => {
   it('createOrderBook:reverse', async () => {
     await createOrderBook(TEST_ADDRESSES.slice().reverse() as [string, string])
   })
-
-  it('createOrderBook:gas', async () => {
-    await factory.createPair(...TEST_ADDRESSES)
-    const tx = await orderBookFactory.createOrderBook(...TEST_ADDRESSES,
-        expandTo18Decimals(1), expandTo18Decimals(2))
-    const receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(4620529)
-  })
 })
