@@ -52,38 +52,38 @@ library OrderBookLibrary {
 
     // fetches and sorts the reserves for a pair
     function getReserves(address pair, address tokenA, address tokenB) internal view returns
-    (uint reserveA, uint reserveB) {
+    (uint112 reserveA, uint112 reserveB) {
         require(tokenA != tokenB, 'OrderBookLibrary: IDENTICAL_ADDRESSES');
         address token0 = tokenA < tokenB ? tokenA : tokenB;
         require(token0 != address(0), 'OrderBookLibrary: ZERO_ADDRESS');
-        (uint reserve0, uint reserve1,) = IUniswapV2Pair(pair).getReserves();
+        (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(pair).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
     function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
-    private
+    internal
     pure
     returns (uint section1) {
         section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
         (10**decimal).div(price));
     }
 
-    function getAmountOutForMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getAmountOutForAmmMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
     pure
-    returns (uint amountOut){
-        amountOut = reserveOut-(reserveIn.add(amountIn)).mul(price).div(10**decimal);
+    returns (uint amountOut) {
+        amountOut = reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal));
     }
 
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
-    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994
+    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
     //amountOut = y-(x+amountIn)*price
-    function getAmountForMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getAmountForAmmMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
         uint section1 = getSection1(reserveIn, reserveOut, price, decimal);
         uint section2 = reserveIn.mul(1997);
         amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-        amountOut = getAmountOutForMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
+        amountOut = getAmountOutForAmmMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
         //再更新reserveInNew = reserveIn + x', reserveOutNew = reserveOut - y'
         (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
     }

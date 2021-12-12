@@ -98,7 +98,7 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        (uint reserveOut, uint reserveIn,) = getReserves();
+        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, quoteToken, baseToken);
         uint amountAmmIn;
         uint amountAmmOut;
         uint amountOut;
@@ -112,7 +112,7 @@ contract OrderBook is OrderBookBase {
                 uint amountInUsed;
                 uint amountOutUsed;
                 (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                    OrderBookLibrary.getAmountForMovePrice(
+                    OrderBookLibrary.getAmountForAmmMovePrice(
                         reserveIn,
                         reserveOut,
                         price,
@@ -159,7 +159,7 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-            OrderBookLibrary.getAmountForMovePrice(
+            OrderBookLibrary.getAmountForAmmMovePrice(
                 reserveIn,
                 reserveOut,
                 targetPrice,
@@ -200,7 +200,7 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        (uint reserveIn, uint reserveOut,) = getReserves();
+        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         amountLeft = amountOffer;
         uint amountAmmIn;
         uint amountAmmOut;
@@ -214,7 +214,7 @@ contract OrderBook is OrderBookBase {
                 uint amountInUsed;
                 uint amountOutUsed;
                 (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForMovePrice(
+                OrderBookLibrary.getAmountForAmmMovePrice(
                     reserveIn,
                     reserveOut,
                     price,
@@ -260,7 +260,7 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForMovePrice(
+                OrderBookLibrary.getAmountForAmmMovePrice(
                     reserveIn,
                     reserveOut,
                     targetPrice,
@@ -471,7 +471,7 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
-            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForMovePrice(
+            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForAmmMovePrice(
                 reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountOutUsed = amountInUsed > amountInLeft ?
@@ -515,7 +515,7 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
-            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForMovePrice(
+            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForAmmMovePrice(
                 reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountInUsed = amountOutUsed > amountOutLeft ?
@@ -549,8 +549,7 @@ contract OrderBook is OrderBookBase {
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
     external
     returns (uint amountAmmOut, address[] memory accounts, uint[] memory amounts) {
-        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, tokenIn,
-            tokenIn == baseToken ? quoteToken: baseToken);
+        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         require(msg.sender == pair, "UniswapV2 OrderBook: FORBIDDEN");
 
         //direction for tokenA swap to tokenB
@@ -568,7 +567,7 @@ contract OrderBook is OrderBookBase {
                 uint amountInUsed;
                 uint amountOutUsed;
                 (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForMovePrice(
+                OrderBookLibrary.getAmountForAmmMovePrice(
                     reserveIn,
                     reserveOut,
                     price,

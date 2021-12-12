@@ -137,24 +137,42 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     function getReserves()
-    public
+    external
     view
-    returns (uint112 reserveBase, uint112 reserveQuote, uint32 blockTimestampLast) {
-        (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
-        reserveBase = baseToken == IUniswapV2Pair(pair).token0() ? _reserve0 : _reserve1;
-        reserveQuote = reserveBase == _reserve0 ? _reserve1 : _reserve0;
-        blockTimestampLast = _blockTimestampLast;
+    returns (uint112 reserveBase, uint112 reserveQuote) {
+        (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
     }
 
     function getPrice()
     external
     view
-    returns (uint price){
-        (uint112 reserveBase, uint112 reserveQuote,) = getReserves();
+    returns (uint price) {
+        (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         if (reserveBase != 0){
             uint d = reserveQuote.mul(10 ** priceDecimal);
             price = d / reserveBase;
         }
+    }
+
+    /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    external
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
+        (10**decimal).div(price));
+    }*/
+
+    function getAmountOutForAmmMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    external
+    pure
+    returns (uint amountOut) {
+        amountOut = OrderBookLibrary.getAmountOutForAmmMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
+    }
+
+    function getAmountForAmmMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
+        (amountIn, amountOut, reserveInNew, reserveOutNew) =
+        OrderBookLibrary.getAmountForAmmMovePrice(reserveIn, reserveOut, price, decimal);
     }
 
     function tradeDirection(address tokenIn)
