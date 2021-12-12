@@ -58,7 +58,7 @@ describe('HybridxOrderBook', () => {
     const price = expandTo18Decimals(2)
     const decimal = 18
 
-    let results = await orderBook.getAmountForAmmMovePrice(reserves[0], reserves[1], price, decimal)
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
     console.log(results[0].toString())
     console.log(results[1].toString())
     console.log(results[2].toString())
@@ -79,7 +79,7 @@ describe('HybridxOrderBook', () => {
     const price = expandTo18Decimals(2)
     const decimal = 18
 
-    let results = await orderBook.getAmountForAmmMovePrice(reserves[0], reserves[1], price, decimal)
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
     console.log(results[0].toString())
     console.log(results[1].toString())
     console.log(results[2].toString())
@@ -100,7 +100,7 @@ describe('HybridxOrderBook', () => {
     const price = bigNumberify("1389583680700000000")
     const decimal = 18
 
-    let results = await orderBook.getAmountForAmmMovePrice(reserves[0], reserves[1], price, decimal)
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
     console.log(results[0].toString())
     console.log(results[1].toString())
     console.log(results[2].toString())
@@ -121,7 +121,7 @@ describe('HybridxOrderBook', () => {
     const price = bigNumberify("1")
     const decimal = 18
 
-    let results = await orderBook.getAmountForAmmMovePrice(reserves[0], reserves[1], price, decimal)
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
     console.log(results[0].toString())
     console.log(results[1].toString())
     console.log(results[2].toString())

@@ -60,20 +60,22 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
+    //sqrt(9*x*x + 3988000*x*y*price)
     function getSection1ForBuyLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
-    internal
-    pure
-    returns (uint section1) {
-        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).div
-        (price).div(10**decimal)));
-    }
-
-    function getSection1ForSellLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
     pure
     returns (uint section1) {
         section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
         (price).div(10**decimal)));
+    }
+
+    //sqrt(9*x*x + 3988000*x*y/price)
+    function getSection1ForSellLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    internal
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
+        (10**decimal).div(price)));
     }
 
     function getAmountOutForAmmMovePrice(
@@ -86,8 +88,8 @@ library OrderBookLibrary {
     internal
     pure
     returns (uint amountOut) {
-        amountOut = direction == LIMIT_BUY ? reserveOut.sub((reserveIn.add(amountIn)).div(price).div(10**decimal)) :
-            reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal));
+        amountOut = direction == LIMIT_BUY ? reserveOut.sub((reserveIn.add(amountIn)).div(price).div(10**decimal)) : //y-(x+amountIn)/price
+            reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal)); //y-(x+amountIn)*price
     }
 
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
