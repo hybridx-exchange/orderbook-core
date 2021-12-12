@@ -162,17 +162,29 @@ contract OrderBookBase is OrderQueue, PriceList {
         (10**decimal).div(price));
     }*/
 
-    function getAmountOutForAmmMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getAmountOutForAmmMovePrice(
+        uint direction,
+        uint amountIn,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal)
     external
     pure
     returns (uint amountOut) {
-        amountOut = OrderBookLibrary.getAmountOutForAmmMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
+        amountOut = OrderBookLibrary.getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price,
+            decimal);
     }
 
-    function getAmountForAmmMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getAmountForAmmMovePrice(
+        uint direction,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal)
     external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
         (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForAmmMovePrice(reserveIn, reserveOut, price, decimal);
+        OrderBookLibrary.getAmountForAmmMovePrice(direction, reserveIn, reserveOut, price, decimal);
     }
 
     function tradeDirection(address tokenIn)

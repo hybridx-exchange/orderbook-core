@@ -60,32 +60,58 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
-    function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getSection1ForBuyLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
     pure
     returns (uint section1) {
-        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
-        (10**decimal).div(price));
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).div
+        (price).div(10**decimal)));
     }
 
-    function getAmountOutForAmmMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getSection1ForSellLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    internal
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
+        (price).div(10**decimal)));
+    }
+
+    function getAmountOutForAmmMovePrice(
+        uint direction,
+        uint amountIn,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal)
     internal
     pure
     returns (uint amountOut) {
-        amountOut = reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal));
+        amountOut = direction == LIMIT_BUY ? reserveOut.sub((reserveIn.add(amountIn)).div(price).div(10**decimal)) :
+            reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal));
     }
 
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
     //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
     //amountOut = y-(x+amountIn)*price
-    function getAmountForAmmMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    function getAmountForAmmMovePrice(uint direction, uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        uint section1 = getSection1(reserveIn, reserveOut, price, decimal);
-        uint section2 = reserveIn.mul(1997);
-        amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-        amountOut = getAmountOutForAmmMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
-        //再更新reserveInNew = reserveIn + x', reserveOutNew = reserveOut - y'
-        (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+        if (direction == LIMIT_BUY) {
+            uint section1 = getSection1ForBuyLimit(reserveIn, reserveOut, price, decimal);
+            uint section2 = reserveIn.mul(1997);
+            amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountOut = getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
+            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+        }
+        else if (direction == LIMIT_SELL) {
+            uint section1 = getSection1ForSellLimit(reserveIn, reserveOut, price, decimal);
+            uint section2 = reserveIn.mul(1997);
+            amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountOut = getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
+            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+        }
+        else {
+            (reserveInNew, reserveOutNew) = (reserveIn, reserveOut);
+        }
     }
 
     //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
