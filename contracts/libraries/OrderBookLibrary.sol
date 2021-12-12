@@ -101,14 +101,16 @@ library OrderBookLibrary {
             uint section1 = getSection1ForBuyLimit(reserveIn, reserveOut, price, decimal);
             uint section2 = reserveIn.mul(1997);
             amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountOut = getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
+            amountOut = amountIn == 0 ? 0 :
+                getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
             (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
         }
         else if (direction == LIMIT_SELL) {
             uint section1 = getSection1ForSellLimit(reserveIn, reserveOut, price, decimal);
             uint section2 = reserveIn.mul(1997);
             amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountOut = getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
+            amountOut = amountIn == 0 ? 0 :
+                getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
             (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
         }
         else {

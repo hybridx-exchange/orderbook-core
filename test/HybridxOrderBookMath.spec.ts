@@ -76,7 +76,28 @@ describe('HybridxOrderBook', () => {
     const reserves = await orderBook.getReserves()
     console.log(reserves[0].toString())
     console.log(reserves[1].toString())
-    const price = expandTo18Decimals(2)
+    const price = expandTo18Decimals(3)
+    const decimal = 18
+
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
+    console.log(results[0].toString())
+    console.log(results[1].toString())
+    console.log(results[2].toString())
+    console.log(results[3].toString())
+  })
+
+  it('getAmountForAmmMovePrice: current price << target price', async () => {
+    console.log("price before:", (await orderBook.getPrice()).toString())
+
+    console.log("base", tokenBase.address)
+    console.log("quote", tokenQuote.address)
+    console.log("token0", token0.address)
+    console.log("token1", token1.address)
+
+    const reserves = await orderBook.getReserves()
+    console.log(reserves[0].toString())
+    console.log(reserves[1].toString())
+    const price = expandTo18Decimals(200)
     const decimal = 18
 
     let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
