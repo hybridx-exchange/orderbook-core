@@ -66,6 +66,28 @@ describe('HybridxOrderBook', () => {
     console.log("price after:", (await orderBook.getPrice()).toString())
   })
 
+  it('create:sell limit order', async () => {
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    const limitAmount = expandTo18Decimals(10)
+    console.log("limitAmount:", limitAmount.toString())
+    await tokenBase.transfer(orderBook.address, limitAmount)
+
+    await expect(orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address))
+        .to.emit(orderBook, 'OrderCreated')
+        .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 2)
+
+    console.log("order:", await orderBook.marketOrders(1))
+    console.log("market book:", await orderBook.marketBook(1, 1))
+    console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
+    console.log("user order:", await orderBook.userOrders(wallet.address, 0))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })
+
   it('create:gas', async () => {
     await tokenQuote.transfer(orderBook.address, expandTo18Decimals(10))
     const tx = await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
