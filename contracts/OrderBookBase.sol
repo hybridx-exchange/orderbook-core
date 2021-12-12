@@ -137,7 +137,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     function getReserves()
-    internal
+    public
     view
     returns (uint112 reserveBase, uint112 reserveQuote, uint32 blockTimestampLast) {
         (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) = IUniswapV2Pair(pair).getReserves();

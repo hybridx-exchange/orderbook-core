@@ -8,7 +8,7 @@ import ERC20 from '@hybridx-exchange/v2-core/build/ERC20.json'
 import UniswapV2Factory from '@hybridx-exchange/v2-core/build/UniswapV2Factory.json'
 import UniswapV2Pair from '@hybridx-exchange/v2-core/build/UniswapV2Pair.json'
 import OrderBookFactory from '../../build/OrderBookFactory.json'
-import OrderBook from '../../build/OrderBook.json'
+import OrderBook from '../../build/OrderBookTest.json'
 import WETH from '../../build/WETH9.json'
 
 interface FactoryFixture {

@@ -3,6 +3,7 @@ pragma solidity >=0.5.0;
 import "../interfaces/IOrderBook.sol";
 import "../interfaces/IOrderBookFactory.sol";
 import "../interfaces/IUniswapV2Pair.sol";
+import "./Math.sol";
 import "./SafeMath.sol";
 
 library OrderBookLibrary {
@@ -10,6 +11,15 @@ library OrderBookLibrary {
 
     uint internal constant LIMIT_BUY = 1;
     uint internal constant LIMIT_SELL = 2;
+
+    function getOppositeDirection(uint direction) internal pure returns (uint opposite){
+        if (LIMIT_BUY == direction) {
+            opposite = LIMIT_SELL;
+        }
+        else if (LIMIT_SELL == direction) {
+            opposite = LIMIT_BUY;
+        }
+    }
 
     //根据价格计算使用amountIn换出的amountOut的数量
     function getAmountOutWithPrice(uint amountIn, uint price, uint decimal) internal pure returns (uint amountOut){
@@ -50,40 +60,32 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
+    function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    private
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
+        (10**decimal).div(price));
+    }
+
+    function getAmountOutForMovePrice(uint amountIn, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    internal
+    pure
+    returns (uint amountOut){
+        amountOut = reserveOut-(reserveIn.add(amountIn)).mul(price).div(10**decimal);
+    }
+
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
-    function getAmountForMovePrice(uint direction, uint reserveIn, uint reserveOut, uint price, uint decimal)
+    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994
+    //amountOut = y-(x+amountIn)*price
+    function getAmountForMovePrice(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (uint baseReserve, uint quoteReserve) = (reserveIn, reserveOut);
-        if (direction == LIMIT_BUY) {//buy (quoteToken == tokenA)  用tokenA换tokenB
-            (baseReserve, quoteReserve) = (reserveOut, reserveIn);
-            //根据p = y + (1-0.3%) * y' / (1-0.3%) * x 推出 997 * y' = (997 * x * p - 1000 * y), 如果等于0表示不需要移动价格
-            //先计算997 * x * p
-            uint b1 = getAmountOutWithPrice(baseReserve.mul(997), price, decimal);
-            //再计算1000 * y
-            uint q1 = quoteReserve.mul(1000);
-            //再计算y' = (997 * x * p - 1000 * y) / 997
-            amountIn = b1 > q1 ? (b1 - q1) / 997 : 0;
-            //再计算x'
-            amountOut = amountIn != 0 ? getAmountOut(amountIn, reserveIn, reserveOut) : 0;
-            //再更新reserveInNew = reserveIn - x', reserveOutNew = reserveOut + y'
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
-        }
-        else if (direction == LIMIT_SELL) {//sell(quoteToken == tokenB) 用tokenA换tokenB
-            //根据p = x + (1-0.3%) * x' / (1-0.3%) * y 推出 997 * x' = (997 * y * p - 1000 * x), 如果等于0表示不需要移动价格
-            //先计算 y * p * 997
-            uint q1 = getAmountOutWithPrice(quoteReserve.mul(997), price, decimal);
-            //再计算 x * 1000
-            uint b1 = baseReserve.mul(1000);
-            //再计算x' = (997 * y * p - 1000 * x) / 997
-            amountIn = q1 > b1 ? (q1 - b1) / 997 : 0;
-            //再计算y' = (1-0.3%) x' / p
-            amountOut = amountIn != 0 ? getAmountOut(amountIn, reserveIn, reserveOut) : 0;
-            //再更新reserveInNew = reserveIn + x', reserveOutNew = reserveOut - y'
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
-        }
-        else {
-            (amountIn, reserveInNew, reserveOutNew) = (0, reserveIn, reserveOut);
-        }
+        uint section1 = getSection1(reserveIn, reserveOut, price, decimal);
+        uint section2 = reserveIn.mul(1997);
+        amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
+        amountOut = getAmountOutForMovePrice(amountIn, reserveIn, reserveOut, price, decimal);
+        //再更新reserveInNew = reserveIn + x', reserveOutNew = reserveOut - y'
+        (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
     }
 
     //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
