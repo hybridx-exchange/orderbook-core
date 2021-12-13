@@ -18,7 +18,7 @@ contract OrderBook is OrderBookBase {
         uint price,
         uint decimal,
         uint orderAmount)
-    internal
+    private
     returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
         if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
             //amountOut = amountInOffer / price
@@ -91,7 +91,44 @@ contract OrderBook is OrderBookBase {
         }
     }
 
-    //使用特定数量的token将价格向上移动到特定值--具体执行放到UniswapV2Pair里面, 在这里需要考虑当前价格到目标价格之间的挂单，amm中的分段只用于计算，实际交易一次性完成，不分段
+    function _ammMovePrice(
+        uint direction,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal,
+        uint _amountAmmIn,
+        uint _amountAmmOut)
+    private
+    pure
+    returns (uint amountLeft, uint amountAmmIn, uint amountAmmOut) {
+        uint amountInUsed;
+        uint amountOutUsed;
+        (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
+        OrderBookLibrary.getAmountForAmmMovePrice(
+            direction,
+            reserveIn,
+            reserveOut,
+            price,
+            decimal);
+        if (amountInUsed > amountLeft) {
+            amountAmmIn = _amountAmmIn + amountLeft;
+            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
+            amountLeft = 0;
+        }
+        else {
+            amountAmmIn = _amountAmmIn + amountInUsed;
+            amountAmmOut = _amountAmmOut + amountOutUsed;
+            amountLeft = amountLeft - amountInUsed;
+        }
+    }
+
+    /*
+        swap to price1 and take the order with price of price1 and
+        swap to price2 and take the order with price of price2
+        ......
+        until all offered amount of limit order is consumed or price == target.
+    */
     function _movePriceUp(
         uint amountOffer,
         uint targetPrice,
@@ -101,49 +138,32 @@ contract OrderBook is OrderBookBase {
         (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, quoteToken, baseToken);
         uint amountAmmIn;
         uint amountAmmOut;
-        uint amountOut;
+        uint amountOrderBookOut;
         amountLeft = amountOffer;
 
         uint price = nextPrice(LIMIT_SELL, 0);
         uint amount = price != 0 ? listAgg(LIMIT_SELL, price) : 0;
         while (price != 0 && price <= targetPrice) {
-            if (reserveIn > 0 && reserveOut > 0) {//LP没有流动性直接跳过
-                //先计算pair从当前价格到price消耗amountIn的数量
-                uint amountInUsed;
-                uint amountOutUsed;
-                (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                    OrderBookLibrary.getAmountForAmmMovePrice(
-                        LIMIT_BUY,
-                        reserveIn,
-                        reserveOut,
-                        price,
-                        priceDecimal);
-                if (amountInUsed > amountLeft) {
-                    amountAmmIn += amountLeft;
-                    amountAmmOut += OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
-                    amountLeft = 0;
-                }
-                else {
-                    amountAmmIn += amountInUsed;
-                    amountAmmOut += amountOutUsed;
-                    amountLeft = amountLeft - amountInUsed;
-                }
-
+            //skip if there is no liquidity in lp pool
+            if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
+                (amountLeft, amountAmmIn, amountAmmOut) =
+                    _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
                 }
             }
 
-            //消耗掉一个价格的挂单并返回实际需要的amountIn数量
-            (uint amountInForTake, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) =
+            //take the order of price 'price'.
+            (uint amountInForTake,
+            uint amountOutWithFee,
+            address[] memory accounts,
+            uint[] memory amounts) =
                 _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
-            amountOut += amountOutWithFee;
-
-            //给对应数量的tokenIn发送给对应的账号
+            amountOrderBookOut += amountOutWithFee;
             _batchTransfer(quoteToken, accounts, amounts);
 
             amountLeft = amountInForTake < amountLeft ? amountLeft - amountInForTake : 0;
-            if (amountLeft == 0) { //amountIn消耗完了
+            if (amountLeft == 0) {  //break if there is no amount left.
                 break;
             }
 
@@ -151,36 +171,19 @@ contract OrderBook is OrderBookBase {
             amount = price != 0 ? listAgg(LIMIT_SELL, price) : 0;
         }
 
-        //一次性将吃单获得的数量转给用户
-        if (amountOut > 0) {//当token为weth时，需要将weth转为eth
-            _singleTransfer(baseToken, to, amountOut);
+        // send the user for take all limit order's amount.
+        if (amountOrderBookOut > 0) {
+            _singleTransfer(baseToken, to, amountOrderBookOut);
         }
 
-        if (price < targetPrice && amountLeft > 0){//处理挂单之外的价格范围
-            uint amountInUsed;
-            uint amountOutUsed;
-            (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-            OrderBookLibrary.getAmountForAmmMovePrice(
-                LIMIT_BUY,
-                reserveIn,
-                reserveOut,
-                targetPrice,
-                priceDecimal);
-            if (amountInUsed > amountLeft) {
-                amountAmmIn += amountLeft;
-                amountAmmOut += OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
-                amountLeft = 0;
-            }
-            else {
-                amountAmmIn += amountInUsed;
-                amountAmmOut += amountOutUsed;
-                amountLeft = amountLeft - amountInUsed;
-            }
+        // swap to target price when there is no limit order less than the target price
+        if (price < targetPrice && amountLeft > 0) {
+            (amountLeft, amountAmmIn, amountAmmOut) =
+                _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
         }
 
-        if (amountAmmIn > 0) {//向pair转账
+        if (amountAmmIn > 0) {
             _safeTransfer(quoteToken, pair, amountAmmIn);
-            //将当前价格移动到目标价格并最多消耗amountLeft
             (uint amount0Out, uint amount1Out) = baseToken == IUniswapV2Pair(pair).token0() ?
                 (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
             address WETH = IOrderBookFactory(factory).WETH();
@@ -195,7 +198,12 @@ contract OrderBook is OrderBookBase {
         }
     }
 
-    //使用特定数量的token将价格向上移动到特定值--具体执行放到UniswapV2Pair里面, 在这里需要考虑当前价格到目标价格之间的挂单
+    /*
+        swap to price1 and take the order with price of price1 and
+        swap to price2 and take the order with price of price2
+        ......
+        until all offered amount of limit order is consumed or price == target.
+    */
     function _movePriceDown(
         uint amountOffer,
         uint targetPrice,
@@ -206,48 +214,30 @@ contract OrderBook is OrderBookBase {
         amountLeft = amountOffer;
         uint amountAmmIn;
         uint amountAmmOut;
-        uint amountOut;
+        uint amountOrderBookOut;
 
         uint price = nextPrice(LIMIT_BUY, 0);
         uint amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
         while (price != 0 && price <= targetPrice) {
-            if (reserveIn > 0 && reserveOut > 0) {//LP没有流动性直接跳过
-                //先计算pair从当前价格到price消耗amountIn的数量
-                uint amountInUsed;
-                uint amountOutUsed;
-                (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForAmmMovePrice(
-                    LIMIT_SELL,
-                    reserveIn,
-                    reserveOut,
-                    price,
-                    priceDecimal);
-                if (amountInUsed > amountLeft) {
-                    amountAmmIn += amountLeft;
-                    amountAmmOut += OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
-                    amountLeft = 0;
-                }
-                else {
-                    amountAmmIn += amountInUsed;
-                    amountAmmOut += amountOutUsed;
-                    amountLeft = amountLeft - amountInUsed;
-                }
-
+            //skip if there is no liquidity in lp pool
+            if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
+                (amountLeft, amountAmmIn, amountAmmOut) =
+                    _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
                 }
             }
 
-            //消耗掉一个价格的挂单并返回实际需要的amountIn数量
-            (uint amountInForTake, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) =
-                _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
-            amountOut += amountOutWithFee;
-
-            //给对应数量的tokenIn发送给对应的账号
+            //take the order of price 'price'.
+            (uint amountInForTake,
+            uint amountOutWithFee,
+            address[] memory accounts,
+            uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
+            amountOrderBookOut += amountOutWithFee;
             _batchTransfer(baseToken, accounts, amounts);
 
             amountLeft = amountInForTake < amountLeft ? amountLeft - amountInForTake : 0;
-            if (amountLeft == 0) { //amountIn消耗完了
+            if (amountLeft == 0) { //break if there is no amount left.
                 break;
             }
 
@@ -255,35 +245,19 @@ contract OrderBook is OrderBookBase {
             amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
         }
 
-        if (amountOut > 0){
-            _singleTransfer(quoteToken, to, amountOut);
+        // send the user for take all limit order's amount.
+        if (amountOrderBookOut > 0) {
+            _singleTransfer(quoteToken, to, amountOrderBookOut);
         }
 
-        if (price < targetPrice && amountLeft > 0){//处理挂单之外的价格范围
-            uint amountInUsed;
-            uint amountOutUsed;
-            (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForAmmMovePrice(
-                    LIMIT_SELL,
-                    reserveIn,
-                    reserveOut,
-                    targetPrice,
-                    priceDecimal);
-            if (amountInUsed > amountLeft) {
-                amountAmmIn += amountLeft;
-                amountAmmOut += OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
-                amountLeft = 0;
-            }
-            else {
-                amountAmmIn += amountInUsed;
-                amountAmmOut += amountOutUsed;
-                amountLeft = amountLeft - amountInUsed;
-            }
+        // swap to target price when there is no limit order less than the target price
+        if (price < targetPrice && amountLeft > 0) {
+            (amountLeft, amountAmmIn, amountAmmOut) =
+                _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, targetPrice, priceDecimal, amountAmmIn, amountAmmOut);
         }
 
-        if (amountAmmIn > 0){//向pair转账
+        if (amountAmmIn > 0) {
             _safeTransfer(baseToken, pair, amountAmmIn);
-            //将当前价格移动到目标价格并最多消耗amountLeft
             (uint amount0Out, uint amount1Out) = quoteToken == IUniswapV2Pair(pair).token0() ?
                 (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
             address WETH = IOrderBookFactory(factory).WETH();
@@ -298,7 +272,7 @@ contract OrderBook is OrderBookBase {
         }
     }
 
-    //创建限价买订单
+    //limit order for buy base token with quote token
     function createBuyLimitOrder(
         address user,
         uint price,
@@ -308,27 +282,22 @@ contract OrderBook is OrderBookBase {
     returns (uint orderId) {
         require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
 
-        //需要先将token转移到order book合约(在router中执行), 以免与pair中的token混合
+        //get input amount of quote token for buy limit order
         uint balance = IERC20(quoteToken).balanceOf(address(this));
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
-        //更新quote余额
-        quoteBalance = balance;
-        //先在流动性池将价格拉到挂单价，同时还需要吃掉价格范围内的反方向挂单
+
         uint amountRemain = _movePriceUp(amountOffer, price, to);
         if (amountRemain != 0) {
-            //未成交的部分生成限价买单
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_BUY);
-            //产生订单创建事件
             emit OrderCreated(user, to, amountOffer, amountRemain, price, LIMIT_BUY);
         }
-        //如果完全成交则在成交过程中直接产生订单创建事件和订单成交事件,链上不保存订单历史数据
 
-        //更新余额
+        //update quote balance
         quoteBalance = amountRemain != amountOffer ? IERC20(quoteToken).balanceOf(address(this)) : balance;
     }
 
-    //创建限价卖订单
+    //limit order for sell base token to quote token
     function createSellLimitOrder(
         address user,
         uint price,
@@ -338,21 +307,18 @@ contract OrderBook is OrderBookBase {
     returns (uint orderId) {
         require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
 
-        //需要将token转移到order book合约, 以免与pair中的token混合
+        //get input amount of base token for sell limit order
         uint balance = IERC20(baseToken).balanceOf(address(this));
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
 
-        //先在流动性池将价格拉到挂单价，同时还需要吃掉价格范围内的反方向挂单
         uint amountRemain = _movePriceDown(amountOffer, price, to);
         if (amountRemain != 0) {
-            //未成交的部分生成限价买单
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_SELL);
-            //产生订单创建事件
             emit OrderCreated(user, to, amountOffer, amountRemain, price, LIMIT_SELL);
         }
 
-        //更新余额
+        //update base balance
         baseBalance = amountRemain != amountOffer ? IERC20(baseToken).balanceOf(address(this)) : balance;
     }
 
@@ -362,10 +328,11 @@ contract OrderBook is OrderBookBase {
 
         _removeLimitOrder(o);
 
+        //refund
         address token = o.orderType == 1 ? quoteToken : baseToken;
         _singleTransfer(token, o.to, o.amountRemain);
 
-        //更新token余额
+        //update token balance
         uint balance = IERC20(token).balanceOf(address(this));
         if (o.orderType == 1) quoteBalance = balance;
         else baseBalance = balance;
@@ -418,6 +385,8 @@ contract OrderBook is OrderBookBase {
         }
 
         amountUsed = amount - amountLeft;
+
+        //balance update
     }
 
     //take buy limit order
