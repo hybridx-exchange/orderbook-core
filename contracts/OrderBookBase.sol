@@ -64,6 +64,14 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint price,
         uint);
 
+    event OrderUpdate(
+        address indexed owner,
+        address indexed to,
+        uint amountOffer,
+        uint amountUsed,
+        uint price,
+        uint);
+
     event OrderClosed(
         address indexed owner,
         address indexed to,
@@ -107,6 +115,19 @@ contract OrderBookBase is OrderQueue, PriceList {
         priceStep = _priceStep;
         priceDecimal = IERC20(_quoteToken).decimals();
         minAmount = _minAmount;
+    }
+
+    function _getBaseBalance() internal view returns (uint balance) {
+        balance = IERC20(baseToken).balanceOf(address(this));
+    }
+
+    function _getQuoteBalance() internal view returns (uint balance) {
+        balance = IERC20(quoteToken).balanceOf(address(this));
+    }
+
+    function _updateBalance() internal {
+        baseBalance = IERC20(baseToken).balanceOf(address(this));
+        quoteBalance = IERC20(quoteToken).balanceOf(address(this));
     }
 
     function _safeTransfer(address token, address to, uint value)

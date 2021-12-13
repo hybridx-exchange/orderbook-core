@@ -44,6 +44,20 @@ contract OrderQueue {
         }
     }
 
+    // get the front element
+    function peek(
+        uint direction,
+        uint price)
+    internal
+    view
+    returns (uint data) {
+        uint front = limitOrderQueueFront[direction][price];
+        uint rear = limitOrderQueueRear[direction][price];
+        if (front != rear) {
+            data = limitOrderQueueMap[direction][price][front];
+        }
+    }
+
     // del - 调用方保证元素一定存在
     function del(
         uint direction,

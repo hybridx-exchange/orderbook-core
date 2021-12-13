@@ -296,7 +296,7 @@ contract OrderBook is OrderBookBase {
         require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
 
         //get input amount of quote token for buy limit order
-        uint balance = IERC20(quoteToken).balanceOf(address(this));
+        uint balance = _getQuoteBalance();
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
 
@@ -307,7 +307,7 @@ contract OrderBook is OrderBookBase {
         }
 
         //update quote balance
-        quoteBalance = amountRemain != amountOffer ? IERC20(quoteToken).balanceOf(address(this)) : balance;
+        quoteBalance = amountRemain != amountOffer ? _getQuoteBalance() : balance;
     }
 
     //limit order for sell base token to quote token
@@ -321,7 +321,7 @@ contract OrderBook is OrderBookBase {
         require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
 
         //get input amount of base token for sell limit order
-        uint balance = IERC20(baseToken).balanceOf(address(this));
+        uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
 
@@ -332,7 +332,7 @@ contract OrderBook is OrderBookBase {
         }
 
         //update base balance
-        baseBalance = amountRemain != amountOffer ? IERC20(baseToken).balanceOf(address(this)) : balance;
+        baseBalance = amountRemain != amountOffer ? _getBaseBalance() : balance;
     }
 
     function cancelLimitOrder(uint orderId) external lock {
@@ -353,7 +353,6 @@ contract OrderBook is OrderBookBase {
         emit OrderCanceled(o.owner, o.to, o.amountOffer, o.amountRemain, o.price, o.orderType);
     }
 
-    //由pair的swap接口调用
     function _takeLimitOrder(
         uint direction,
         uint amount,
@@ -365,41 +364,40 @@ contract OrderBook is OrderBookBase {
         uint length = length(direction, price);
         accounts = new address[](length);
         amounts = new uint[](length);
-        while(index < length && amountLeft > 0){
-            uint orderId = pop(direction, price);
+        while (index < length && amountLeft > 0) {
+            uint orderId = peek(direction, price);
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == 1 && price == order.price,
                 'UniswapV2 OrderBook: Order Invalid');
             accounts[index] = order.to;
             amounts[index] = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amounts[index];
-            //触发订单交易事件
-            emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
-                .amountRemain, order.orderType);
 
-            //如果还有剩余，将剩余部分入队列，交易结束
             if (order.amountRemain != 0) {
-                push(direction, price, order.orderId);
+                marketOrders[orderId].amountRemain = order.amountRemain;
+                emit OrderUpdate(order.owner, order.to, order.price, order.amountOffer, order
+                    .amountRemain, order.orderType);
                 break;
             }
 
-            //删除订单
+            pop(direction, price);
+            emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
+                .amountRemain, order.orderType);
+
             delete marketOrders[orderId];
 
-            //删除用户订单
+            //delete user order
             uint userOrderSize = userOrders[order.owner].length;
             require(userOrderSize > order.orderIndex);
-            //直接用最后一个元素覆盖当前元素
+            //overwrite the current element with the last element directly
             userOrders[order.owner][order.orderIndex] = userOrders[order.owner][userOrderSize - 1];
-            //删除最后元素
+            //delete the last element
             userOrders[order.owner].pop();
 
             amountLeft = amountLeft - amounts[index++];
         }
 
         amountUsed = amount - amountLeft;
-
-        //balance update
     }
 
     //take buy limit order
@@ -412,6 +410,8 @@ contract OrderBook is OrderBookBase {
         (accounts, amounts, amountUsed) = _takeLimitOrder(LIMIT_BUY, amount, price);
         //向pair合约转账amountUsed的baseToken
         _safeTransfer(baseToken, pair, amountUsed);
+        //update base balance
+        baseBalance = _getBaseBalance();
     }
 
     //take sell limit order
@@ -424,6 +424,8 @@ contract OrderBook is OrderBookBase {
         (accounts, amounts, amountUsed) = _takeLimitOrder(LIMIT_SELL, amount, price);
         //向pair合约转账amountUsed
         _safeTransfer(quoteToken, pair, amountUsed);
+        //update quote balance
+        quoteBalance = _getQuoteBalance();
     }
 
     //更新价格间隔
