@@ -94,7 +94,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     external {
         require(msg.sender == factory, 'UniswapV2 OrderBook: FORBIDDEN'); // sufficient check
         require(_priceStep >= 1, 'UniswapV2 OrderBook: Price Step Invalid');
-        require(_minAmount >= 1, 'UniswapV2 OrderBook: Min Amount Invalid');
+        require(_minAmount >= 1000, 'UniswapV2 OrderBook: Min Amount Invalid');
         (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
         require(
             (token0 == _baseToken && token1 == _quoteToken) ||

@@ -19,32 +19,38 @@ contract OrderBook is OrderBookBase {
         uint decimal,
         uint orderAmount)
     private
-    returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
+    returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accounts, uint[] memory amounts) {
+        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
-            uint amountOut = OrderBookLibrary.getAmountInWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+            uint amountOut = OrderBookLibrary.getBuyAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountIn = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;//吃掉所有
+                amountOut = orderAmount.mul(997).div(1000);
                 //amountIn = amountOutWithoutFee * price
-                (amountIn, amountOutWithFee) = (OrderBookLibrary.getAmountOutWithPrice(amountOutWithoutFee, price, decimal),
-                    orderAmount);
+                amountIn = OrderBookLibrary.getSellAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee.sub(amountOut);
             }
             (accounts, amounts, ) = _takeLimitOrder(LIMIT_SELL, amountOutWithFee, price);
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
+        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price
-            uint amountOut = OrderBookLibrary.getAmountInWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+            uint amountOut = OrderBookLibrary.getSellAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountIn = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;
+                amountOut = orderAmount.mul(997).div(1000);
                 //amountIn = amountOutWithoutFee / price
-                (amountIn, amountOutWithFee) = (OrderBookLibrary.getAmountOutWithPrice(amountOutWithoutFee, price,
-                    decimal), orderAmount);
+                amountIn = OrderBookLibrary.getBuyAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - amountOut;
             }
             (accounts, amounts, ) = _takeLimitOrder(LIMIT_BUY, amountIn, price);
         }
@@ -59,8 +65,8 @@ contract OrderBook is OrderBookBase {
         uint orderAmount)
     internal
     returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
-        (amountIn, amountOutWithFee, accounts, amounts) =
-        _getAmountAndTakePrice(direction, amountInOffer, price, decimal, orderAmount);
+        (amountIn, amountOutWithFee, , accounts, amounts) =
+            _getAmountAndTakePrice(direction, amountInOffer, price, decimal, orderAmount);
 
         //当token为weth时，外部调用的时候直接将weth转出
         address tokenOut = direction == LIMIT_BUY ? baseToken : quoteToken;
@@ -158,6 +164,7 @@ contract OrderBook is OrderBookBase {
             //take the order of price 'price'.
             (uint amountInForTake,
             uint amountOutWithFee,
+            ,
             address[] memory accounts,
             uint[] memory amounts) =
                 _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
@@ -235,6 +242,7 @@ contract OrderBook is OrderBookBase {
             //take the order of price 'price'.
             (uint amountInForTake,
             uint amountOutWithFee,
+            ,
             address[] memory accounts,
             uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
             amountOrderBookOut += amountOutWithFee;

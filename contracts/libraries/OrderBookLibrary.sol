@@ -21,6 +21,16 @@ library OrderBookLibrary {
         }
     }
 
+    //get buy amount with price based on price and offered funds
+    function getBuyAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
+        amountGet = amountOffer.mul(10 ** decimal).div(price);
+    }
+
+    //get buy amount with price based on price and offered funds
+    function getSellAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
+        amountGet = amountOffer.mul(price).div(10 ** decimal);
+    }
+
     //根据价格计算使用amountIn换出的amountOut的数量
     function getAmountOutWithPrice(uint amountIn, uint price, uint decimal) internal pure returns (uint amountOut){
         amountOut = amountIn.mul(price) / 10 ** decimal;
