@@ -79,9 +79,39 @@ describe('HybridxOrderBook', () => {
         .to.emit(orderBook, 'OrderCreated')
         .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 2)
 
-    console.log("order:", await orderBook.marketOrders(1))
+    console.log("order:", await orderBook.marketOrders(2))
+    console.log("market book:", await orderBook.marketBook(1, 2))
+    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
+    console.log("user order:", await orderBook.userOrders(wallet.address, 0))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })
+
+  it('create:buy limit order and partial fulfill', async () => {
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    const limitAmount = expandTo18Decimals(10)
+    console.log("limitAmount:", limitAmount.toString())
+    await tokenQuote.transfer(orderBook.address, limitAmount)
+
+    await expect(orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address))
+        .to.emit(orderBook, 'OrderCreated')
+
+    const order = await orderBook.marketOrders(1);
+    console.log("order:",
+        order[0].toString(),
+        order[1].toString(),
+        order[2].toString(),
+        order[3].toString(),
+        order[4].toString(),
+        order[5].toString(),
+        order[6].toString(),
+        order[7].toString())
     console.log("market book:", await orderBook.marketBook(1, 1))
-    console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
+    console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(3)))
     console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 

@@ -233,9 +233,9 @@ contract OrderBookBase is OrderQueue, PriceList {
             user,
             _to,
             _generateOrderId(),
+            _price,
             _amountOffer,
             _amountRemain,
-            _price,
             _type,
             orderIndex);
         userOrders[user].push(order.orderId);
