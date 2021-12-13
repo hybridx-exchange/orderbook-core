@@ -97,6 +97,7 @@ contract OrderBook is OrderBookBase {
         uint reserveOut,
         uint price,
         uint decimal,
+        uint _amountLeft,
         uint _amountAmmIn,
         uint _amountAmmOut)
     private
@@ -111,15 +112,15 @@ contract OrderBook is OrderBookBase {
             reserveOut,
             price,
             decimal);
-        if (amountInUsed > amountLeft) {
-            amountAmmIn = _amountAmmIn + amountLeft;
-            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(amountLeft, reserveIn, reserveOut);
+        if (amountInUsed > _amountLeft) {
+            amountAmmIn = _amountAmmIn + _amountLeft;
+            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(_amountLeft, reserveIn, reserveOut);
             amountLeft = 0;
         }
         else {
             amountAmmIn = _amountAmmIn + amountInUsed;
             amountAmmOut = _amountAmmOut + amountOutUsed;
-            amountLeft = amountLeft - amountInUsed;
+            amountLeft = _amountLeft - amountInUsed;
         }
     }
 
@@ -147,7 +148,8 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
                 (amountLeft, amountAmmIn, amountAmmOut) =
-                    _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
+                    _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal,
+                        amountLeft, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -179,7 +181,8 @@ contract OrderBook is OrderBookBase {
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
             (amountLeft, amountAmmIn, amountAmmOut) =
-                _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
+                _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal,
+                    amountLeft, amountAmmIn, amountAmmOut);
         }
 
         if (amountAmmIn > 0) {
@@ -222,7 +225,8 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
                 (amountLeft, amountAmmIn, amountAmmOut) =
-                    _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, price, priceDecimal, amountAmmIn, amountAmmOut);
+                    _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, price, priceDecimal,
+                        amountLeft, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -253,7 +257,8 @@ contract OrderBook is OrderBookBase {
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
             (amountLeft, amountAmmIn, amountAmmOut) =
-                _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, targetPrice, priceDecimal, amountAmmIn, amountAmmOut);
+                _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, targetPrice, priceDecimal,
+                    amountLeft, amountAmmIn, amountAmmOut);
         }
 
         if (amountAmmIn > 0) {
