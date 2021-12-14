@@ -2,6 +2,8 @@ pragma solidity =0.5.16;
 
 import "./interfaces/IERC20.sol";
 import "./libraries/UQ112x112.sol";
+import "./interfaces/IWETH.sol";
+import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
 import "./PriceList.sol";
@@ -136,6 +138,30 @@ contract OrderBookBase is OrderQueue, PriceList {
         require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2 OrderBook: TRANSFER_FAILED');
     }
 
+    function _batchTransfer(address token, address[] memory accounts, uint[] memory amounts) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        for(uint i=0; i<accounts.length; i++) {
+            if (WETH == token){
+                IWETH(WETH).withdraw(amounts[i]);
+                TransferHelper.safeTransferETH( accounts[i], amounts[i]);
+            }
+            else {
+                _safeTransfer(token, accounts[i], amounts[i]);
+            }
+        }
+    }
+
+    function _singleTransfer(address token, address to, uint amount) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        if (token == WETH) {
+            IWETH(WETH).withdraw(amount);
+            TransferHelper.safeTransferETH(to, amount);
+        }
+        else{
+            _safeTransfer(token, to, amount);
+        }
+    }
+
     uint private unlocked = 1;
     modifier lock() {
         require(unlocked == 1, 'UniswapV2 OrderBook: LOCKED');
@@ -157,55 +183,15 @@ contract OrderBookBase is OrderQueue, PriceList {
         orderIds = userOrders[user];
     }
 
-    function getReserves()
-    external
-    view
-    returns (uint112 reserveBase, uint112 reserveQuote) {
-        (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-    }
-
     function getPrice()
-    external
+    public
     view
     returns (uint price) {
         (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-        if (reserveBase != 0){
+        if (reserveBase != 0) {
             uint d = reserveQuote.mul(10 ** priceDecimal);
             price = d / reserveBase;
         }
-    }
-
-    /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
-    external
-    pure
-    returns (uint section1) {
-        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
-        (10**decimal).div(price));
-    }*/
-
-    function getAmountOutForAmmMovePrice(
-        uint direction,
-        uint amountIn,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external
-    pure
-    returns (uint amountOut) {
-        amountOut = OrderBookLibrary.getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price,
-            decimal);
-    }
-
-    function getAmountForAmmMovePrice(
-        uint direction,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForAmmMovePrice(direction, reserveIn, reserveOut, price, decimal);
     }
 
     function tradeDirection(address tokenIn)
@@ -384,5 +370,54 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint next, uint amount) {
         next = nextPrice(direction, cur);
         amount = listAgg(direction, next);
+    }
+
+    function getReserves()
+    external
+    view
+    returns (uint112 reserveBase, uint112 reserveQuote) {
+        (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+    }
+
+    /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    external
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
+        (10**decimal).div(price));
+    }*/
+
+    function getAmountOutForAmmMovePrice(
+        uint direction,
+        uint amountIn,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal)
+    external
+    pure
+    returns (uint amountOut) {
+        amountOut = OrderBookLibrary.getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price,
+            decimal);
+    }
+
+    function getAmountForAmmMovePrice(
+        uint direction,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal)
+    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
+        (amountIn, amountOut, reserveInNew, reserveOutNew) =
+        OrderBookLibrary.getAmountForAmmMovePrice(direction, reserveIn, reserveOut, price, decimal);
+    }
+
+    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
+        require(amountIn > 0, 'OrderBook: INSUFFICIENT_INPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'OrderBook: INSUFFICIENT_LIQUIDITY');
+        uint amountInWithFee = amountIn.mul(997);
+        uint numerator = amountInWithFee.mul(reserveOut);
+        uint denominator = reserveIn.mul(1000).add(amountInWithFee);
+        amountOut = numerator / denominator;
     }
 }

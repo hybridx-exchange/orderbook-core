@@ -10,6 +10,7 @@ import UniswapV2Pair from '@hybridx-exchange/v2-core/build/UniswapV2Pair.json'
 import OrderBookFactory from '../../build/OrderBookFactory.json'
 import OrderBook from '../../build/OrderBook.json'
 import WETH from '../../build/WETH9.json'
+import {bigNumberify} from "ethers/utils";
 
 interface FactoryFixture {
   tokenA: Contract
@@ -19,7 +20,7 @@ interface FactoryFixture {
 }
 
 const overrides = {
-  gasLimit: 9999999
+  gasLimit: 15999999
 }
 
 export async function factoryFixture(_: Web3Provider, [wallet]: Wallet[]): Promise<FactoryFixture> {
@@ -55,7 +56,8 @@ export async function orderBookFixture(provider: Web3Provider, [wallet]: Wallet[
   const token1 = tokenA.address === token0Address ? tokenB : tokenA
 
   await orderBookFactory.createOrderBook(tokenA.address, tokenB.address,
-      expandTo18Decimals(1), expandTo18Decimals(1), overrides)
+      bigNumberify("1000"), bigNumberify("1000"), overrides)
+
   const orderBookAddress = await orderBookFactory.getOrderBook(tokenA.address, tokenB.address)
   const orderBook = new Contract(orderBookAddress, JSON.stringify(OrderBook.abi), provider).connect(wallet)
   const baseToken = new Contract(await orderBook.baseToken(), JSON.stringify(ERC20.abi), provider).connect(wallet)

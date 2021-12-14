@@ -97,3 +97,15 @@ export async function mineBlock(provider: Web3Provider, timestamp: number): Prom
 export function encodePrice(reserve0: BigNumber, reserve1: BigNumber) {
   return [reserve1.mul(bigNumberify(2).pow(112)).div(reserve0), reserve0.mul(bigNumberify(2).pow(112)).div(reserve1)]
 }
+
+// @ts-ignore
+export function printOrder(o: Order) {
+    console.log("order.owner :", o.owner.toString())
+    console.log("order.to :", o.to.toString())
+    console.log("order.orderId :", o.orderId.toString())
+    console.log("order.price :", o.price.toString())
+    console.log("order.amountOffer :", o.amountOffer.toString())
+    console.log("order.amountRemain :", o.amountRemain.toString())
+    console.log("order.orderType :", o.orderType.toString())
+    console.log("order.orderIndex :", o.orderIndex.toString())
+}

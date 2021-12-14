@@ -1,7 +1,5 @@
 pragma solidity =0.5.16;
 
-import "./interfaces/IWETH.sol";
-import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./libraries/Arrays.sol";
 import "./OrderBookBase.sol";
@@ -73,30 +71,6 @@ contract OrderBook is OrderBookBase {
         _safeTransfer(tokenOut, to, amountOutWithFee);
     }
 
-    function _batchTransfer(address token, address[] memory accounts, uint[] memory amounts) internal {
-        address WETH = IOrderBookFactory(factory).WETH();
-        for(uint i=0; i<accounts.length; i++) {
-            if (WETH == token){
-                IWETH(WETH).withdraw(amounts[i]);
-                TransferHelper.safeTransferETH( accounts[i], amounts[i]);
-            }
-            else {
-                _safeTransfer(token, accounts[i], amounts[i]);
-            }
-        }
-    }
-
-    function _singleTransfer(address token, address to, uint amount) internal {
-        address WETH = IOrderBookFactory(factory).WETH();
-        if (token == WETH) {
-            IWETH(WETH).withdraw(amount);
-            TransferHelper.safeTransferETH(to, amount);
-        }
-        else{
-            _safeTransfer(token, to, amount);
-        }
-    }
-
     function _ammMovePrice(
         uint direction,
         uint reserveIn,
@@ -130,6 +104,30 @@ contract OrderBook is OrderBookBase {
         }
     }
 
+    function _ammSwapPrice(address to, uint amountAmmIn, uint amountAmmOut, uint reserveIn, uint
+        reserveOut) internal {
+        uint amountAmmInFix = OrderBookLibrary.getAmountOut(amountAmmOut, reserveIn, reserveOut);
+        require(amountAmmInFix <= amountAmmIn, "UniswapV2 OrderBook: Amount Input Invalid");
+        _safeTransfer(baseToken, pair, amountAmmInFix);
+        //修改amountAmmIn以满足K的要求
+        (uint amount0Out, uint amount1Out) = quoteToken == IUniswapV2Pair(pair).token0() ?
+            (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
+        if (amountAmmInFix < amountAmmIn) {
+            _safeTransfer(baseToken, pair, amountAmmIn - amountAmmInFix);
+            IUniswapV2Pair(pair).sync();
+        }
+
+        address WETH = IOrderBookFactory(factory).WETH();
+        if (WETH == quoteToken) {
+            IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, address(this), new bytes(0));
+            IWETH(WETH).withdraw(amountAmmOut);
+            TransferHelper.safeTransferETH(to, amountAmmOut);
+        }
+        else {
+            IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, to, new bytes(0));
+        }
+    }
+
     /*
         swap to price1 and take the order with price of price1 and
         swap to price2 and take the order with price of price2
@@ -142,6 +140,7 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
+        //token顺序会导致price计算有问题
         (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, quoteToken, baseToken);
         uint amountAmmIn;
         uint amountAmmOut;
@@ -163,8 +162,7 @@ contract OrderBook is OrderBookBase {
 
             //take the order of price 'price'.
             (uint amountInForTake,
-            uint amountOutWithFee,
-            ,
+            uint amountOutWithFee,,
             address[] memory accounts,
             uint[] memory amounts) =
                 _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
@@ -186,7 +184,7 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (price < targetPrice && amountLeft > 0) {
+        if (price > targetPrice && amountLeft > 0) {
             (amountLeft, amountAmmIn, amountAmmOut) =
                 _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal,
                     amountLeft, amountAmmIn, amountAmmOut);
@@ -205,6 +203,8 @@ contract OrderBook is OrderBookBase {
             else {
                 IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, to, new bytes(0));
             }
+
+            //require(getPrice() <= targetPrice, "UniswapV2 OrderBook: swap to target failed");
         }
     }
 
@@ -228,7 +228,7 @@ contract OrderBook is OrderBookBase {
 
         uint price = nextPrice(LIMIT_BUY, 0);
         uint amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
-        while (price != 0 && price <= targetPrice) {
+        while (price != 0 && price >= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
                 (amountLeft, amountAmmIn, amountAmmOut) =
@@ -241,8 +241,7 @@ contract OrderBook is OrderBookBase {
 
             //take the order of price 'price'.
             (uint amountInForTake,
-            uint amountOutWithFee,
-            ,
+            uint amountOutWithFee,,
             address[] memory accounts,
             uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
             amountOrderBookOut += amountOutWithFee;
@@ -270,18 +269,12 @@ contract OrderBook is OrderBookBase {
         }
 
         if (amountAmmIn > 0) {
-            _safeTransfer(baseToken, pair, amountAmmIn);
-            (uint amount0Out, uint amount1Out) = quoteToken == IUniswapV2Pair(pair).token0() ?
-                (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
-            address WETH = IOrderBookFactory(factory).WETH();
-            if (WETH == quoteToken) {
-                IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, address(this), new bytes(0));
-                IWETH(WETH).withdraw(amountAmmOut);
-                TransferHelper.safeTransferETH(to, amountAmmOut);
-            }
-            else {
-                IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, to, new bytes(0));
-            }
+            //_ammSwapPrice(to, amountAmmIn, amountAmmOut, reserveIn, reserveOut);
+
+            //update base balance
+            //baseBalance = _getBaseBalance();
+
+            //require(getPrice() == targetPrice, "UniswapV2 OrderBook: swap to target failed");
         }
     }
 
@@ -318,7 +311,7 @@ contract OrderBook is OrderBookBase {
     external
     lock
     returns (uint orderId) {
-        require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
+        require(price > 0 && (price % priceStep) == 0, 'UniswapV2 OrderBook: Price Invalid');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();

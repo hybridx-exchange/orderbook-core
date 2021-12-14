@@ -12,14 +12,14 @@ const MINIMUM_LIQUIDITY = bigNumberify(10).pow(3)
 chai.use(solidity)
 
 const overrides = {
-  gasLimit: 999999999
+  gasLimit: 19999999
 }
 
 describe('HybridxOrderBook', () => {
   const provider = new MockProvider({
     hardfork: 'istanbul',
     mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
-    gasLimit: 999999999
+    gasLimit: 19999999
   })
   const [wallet, other] = provider.getWallets()
   const loadFixture = createFixtureLoader(provider, [wallet])
@@ -44,7 +44,7 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  it('getAmountForAmmMovePrice: current price == target price', async () => {
+  /*it('getAmountForAmmMovePrice: current price == target price', async () => {
     console.log("price before:", (await orderBook.getPrice()).toString())
 
     console.log("base", tokenBase.address)
@@ -147,5 +147,29 @@ describe('HybridxOrderBook', () => {
     console.log(results[1].toString())
     console.log(results[2].toString())
     console.log(results[3].toString())
+  })*/
+
+  it('getAmountForAmmMovePrice: 2 -> 1', async () => {
+    console.log("price before:", (await orderBook.getPrice()).toString())
+
+    console.log("base", tokenBase.address)
+    console.log("quote", tokenQuote.address)
+    console.log("token0", token0.address)
+    console.log("token1", token1.address)
+
+    const reserves = await orderBook.getReserves()
+    console.log(reserves[0].toString())
+    console.log(reserves[1].toString())
+    const price = bigNumberify("1000000000000000000")
+    const decimal = 18
+
+    let results = await orderBook.getAmountForAmmMovePrice(2, reserves[0], reserves[1], price, decimal)
+    console.log(results[0].toString())
+    console.log(results[1].toString())
+    console.log(results[2].toString())
+    console.log(results[3].toString())
+
+    let amountOut = await orderBook.getAmountOut(results[0], reserves[0], reserves[1]);
+    console.log(amountOut.toString());
   })
 })
