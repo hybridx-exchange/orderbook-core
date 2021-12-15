@@ -70,6 +70,13 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
+    function getPrice(uint reserveBase, uint reserveQuote, uint decimal) internal pure returns (uint price){
+        if (reserveBase != 0) {
+            uint d = reserveQuote.mul(10 ** decimal);
+            price = d / reserveBase;
+        }
+    }
+
     //sqrt(9*x*x + 3988000*x*y*price)
     function getSection1ForBuyLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
@@ -105,26 +112,24 @@ library OrderBookLibrary {
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
     //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
     //amountOut = y-(x+amountIn)*price
-    function getAmountForAmmMovePrice(uint direction, uint reserveIn, uint reserveOut, uint price, uint decimal)
-    internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
+    function getAmountForAmmMovePrice(uint direction, uint reserveBase, uint reserveQuote, uint price, uint decimal)
+    internal pure returns (uint amountBase, uint amountQuote, uint reserveBaseNew, uint reserveQuoteNew) {
         if (direction == LIMIT_BUY) {
-            uint section1 = getSection1ForBuyLimit(reserveIn, reserveOut, price, decimal);
-            uint section2 = reserveIn.mul(1997);
-            amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountOut = amountIn == 0 ? 0 :
-                getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+            uint section1 = getSection1ForBuyLimit(reserveQuote, reserveBase, price, decimal);
+            uint section2 = reserveQuote.mul(1997);
+            amountQuote = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountBase = amountQuote == 0 ? 0 : getAmountOut(amountQuote, reserveQuote, reserveBase);
+            (reserveBaseNew, reserveQuoteNew) = (reserveBase - amountBase, reserveQuote + amountQuote);
         }
         else if (direction == LIMIT_SELL) {
-            uint section1 = getSection1ForSellLimit(reserveIn, reserveOut, price, decimal);
-            uint section2 = reserveIn.mul(1997);
-            amountIn = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountOut = amountIn == 0 ? 0 :
-                getAmountOutForAmmMovePrice(direction, amountIn, reserveIn, reserveOut, price, decimal);
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+            uint section1 = getSection1ForSellLimit(reserveBase, reserveQuote, price, decimal);
+            uint section2 = reserveBase.mul(1997);
+            amountBase = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountQuote = amountBase == 0 ? 0 : getAmountOut(amountBase, reserveBase, reserveQuote);
+            (reserveBaseNew, reserveQuoteNew) = (reserveBase + amountBase, reserveQuote - amountQuote);
         }
         else {
-            (reserveInNew, reserveOutNew) = (reserveIn, reserveOut);
+            (reserveBaseNew, reserveQuoteNew) = (reserveBase, reserveQuote);
         }
     }
 

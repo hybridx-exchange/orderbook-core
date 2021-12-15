@@ -73,8 +73,8 @@ contract OrderBook is OrderBookBase {
 
     function _ammMovePrice(
         uint direction,
-        uint reserveIn,
-        uint reserveOut,
+        uint _reserveIn,
+        uint _reserveOut,
         uint price,
         uint decimal,
         uint _amountLeft,
@@ -82,19 +82,19 @@ contract OrderBook is OrderBookBase {
         uint _amountAmmOut)
     private
     pure
-    returns (uint amountLeft, uint amountAmmIn, uint amountAmmOut) {
+    returns (uint amountLeft, uint reserveIn, uint reserveOut, uint amountAmmIn, uint amountAmmOut) {
         uint amountInUsed;
         uint amountOutUsed;
         (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
         OrderBookLibrary.getAmountForAmmMovePrice(
             direction,
-            reserveIn,
-            reserveOut,
+            _reserveIn,
+            _reserveOut,
             price,
             decimal);
         if (amountInUsed > _amountLeft) {
             amountAmmIn = _amountAmmIn + _amountLeft;
-            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(_amountLeft, reserveIn, reserveOut);
+            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(_amountLeft, _reserveIn, _reserveOut);
             amountLeft = 0;
         }
         else {
@@ -104,18 +104,17 @@ contract OrderBook is OrderBookBase {
         }
     }
 
-    function _ammSwapPrice(address to, uint amountAmmIn, uint amountAmmOut, uint reserveIn, uint
-        reserveOut) internal {
-        uint amountAmmInFix = OrderBookLibrary.getAmountOut(amountAmmOut, reserveIn, reserveOut);
-        require(amountAmmInFix <= amountAmmIn, "UniswapV2 OrderBook: Amount Input Invalid");
-        _safeTransfer(baseToken, pair, amountAmmInFix);
-        //修改amountAmmIn以满足K的要求
-        (uint amount0Out, uint amount1Out) = quoteToken == IUniswapV2Pair(pair).token0() ?
+    function _ammSwapPrice(
+        address to,
+        address tokenIn,
+        address tokenOut,
+        uint amountAmmIn,
+        uint amountAmmOut) internal {
+
+        _safeTransfer(tokenIn, pair, amountAmmIn);
+
+        (uint amount0Out, uint amount1Out) = tokenOut == IUniswapV2Pair(pair).token1() ?
             (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
-        if (amountAmmInFix < amountAmmIn) {
-            _safeTransfer(baseToken, pair, amountAmmIn - amountAmmInFix);
-            IUniswapV2Pair(pair).sync();
-        }
 
         address WETH = IOrderBookFactory(factory).WETH();
         if (WETH == quoteToken) {
@@ -125,6 +124,38 @@ contract OrderBook is OrderBookBase {
         }
         else {
             IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, to, new bytes(0));
+        }
+
+        IUniswapV2Pair(pair).sync();
+    }
+
+    function _getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmIn,
+        uint reserveBase, uint reserveQuote, uint targetPrice)
+    internal view returns (uint amountLeft, uint amountAmmIn) {
+        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差
+        if (curPrice < targetPrice) {
+            uint amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
+            .sub(reserveBase.mul(targetPrice).div(10 ** priceDecimal)))
+            .add(1);
+            require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            amountAmmIn = _amountAmmIn + amountQuoteFix;
+            amountLeft = _amountLeft.sub(amountQuoteFix);
+        }
+    }
+
+    function _getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmIn,
+        uint reserveBase, uint reserveQuote, uint targetPrice)
+    internal view returns (uint amountLeft, uint amountAmmIn) {
+        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差
+        if (curPrice > targetPrice) {
+            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
+            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
+            .add(1);
+            require(_amountLeft >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            amountAmmIn = _amountAmmIn + amountBaseFix;
+            amountLeft = _amountLeft.sub(amountBaseFix);
         }
     }
 
@@ -141,7 +172,7 @@ contract OrderBook is OrderBookBase {
     private
     returns (uint amountLeft) {
         //token顺序会导致price计算有问题
-        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, quoteToken, baseToken);
+        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         uint amountAmmIn;
         uint amountAmmOut;
         uint amountOrderBookOut;
@@ -151,10 +182,10 @@ contract OrderBook is OrderBookBase {
         uint amount = price != 0 ? listAgg(LIMIT_SELL, price) : 0;
         while (price != 0 && price <= targetPrice) {
             //skip if there is no liquidity in lp pool
-            if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
-                (amountLeft, amountAmmIn, amountAmmOut) =
-                    _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal,
-                        amountLeft, amountAmmIn, amountAmmOut);
+            if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
+                (amountLeft, reserveBase, reserveQuote, amountAmmOut, amountAmmIn) =
+                    _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price, priceDecimal,
+                        amountLeft, amountAmmOut, amountAmmIn);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -184,27 +215,21 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (price > targetPrice && amountLeft > 0) {
-            (amountLeft, amountAmmIn, amountAmmOut) =
-                _ammMovePrice(LIMIT_BUY, reserveIn, reserveOut, price, priceDecimal,
-                    amountLeft, amountAmmIn, amountAmmOut);
+        if (price < targetPrice && amountLeft > 0) {
+            (amountLeft, reserveBase, reserveQuote, amountAmmOut, amountAmmIn) =
+                _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice, priceDecimal,
+                    amountLeft, amountAmmOut, amountAmmIn);
         }
 
         if (amountAmmIn > 0) {
-            _safeTransfer(quoteToken, pair, amountAmmIn);
-            (uint amount0Out, uint amount1Out) = baseToken == IUniswapV2Pair(pair).token0() ?
-                (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
-            address WETH = IOrderBookFactory(factory).WETH();
-            if (WETH == baseToken) {
-                IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, address(this), new bytes(0));
-                IWETH(WETH).withdraw(amountAmmOut);
-                TransferHelper.safeTransferETH(to, amountAmmOut);
+            if (amountLeft > 0){
+                (amountLeft, amountAmmIn) =
+                    _getFixAmountForMovePriceUp(amountLeft, amountAmmIn, reserveBase, reserveQuote, targetPrice);
             }
-            else {
-                IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, to, new bytes(0));
-            }
+            _ammSwapPrice(to, quoteToken, baseToken, amountAmmIn, amountAmmOut);
+            //require(getPrice() >= targetPrice, "UniswapV2 OrderBook: swap to target failed");
 
-            //require(getPrice() <= targetPrice, "UniswapV2 OrderBook: swap to target failed");
+            quoteBalance = _getQuoteBalance();
         }
     }
 
@@ -220,7 +245,7 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         amountLeft = amountOffer;
         uint amountAmmIn;
         uint amountAmmOut;
@@ -230,9 +255,9 @@ contract OrderBook is OrderBookBase {
         uint amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
         while (price != 0 && price >= targetPrice) {
             //skip if there is no liquidity in lp pool
-            if (reserveIn > 0 && reserveOut > 0 && price != targetPrice) {
-                (amountLeft, amountAmmIn, amountAmmOut) =
-                    _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, price, priceDecimal,
+            if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
+                (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
+                    _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price, priceDecimal,
                         amountLeft, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
@@ -262,19 +287,19 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (price < targetPrice && amountLeft > 0) {
-            (amountLeft, amountAmmIn, amountAmmOut) =
-                _ammMovePrice(LIMIT_SELL, reserveIn, reserveOut, targetPrice, priceDecimal,
+        if (price == 0 || price > targetPrice && amountLeft > 0) {
+            (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
+                _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice, priceDecimal,
                     amountLeft, amountAmmIn, amountAmmOut);
         }
 
         if (amountAmmIn > 0) {
-            //_ammSwapPrice(to, amountAmmIn, amountAmmOut, reserveIn, reserveOut);
+            _ammSwapPrice(to, baseToken, quoteToken, amountAmmIn, amountAmmOut);
 
             //update base balance
-            //baseBalance = _getBaseBalance();
+            baseBalance = _getBaseBalance();
 
-            //require(getPrice() == targetPrice, "UniswapV2 OrderBook: swap to target failed");
+            require(getPrice() <= targetPrice, "UniswapV2 OrderBook: swap to target failed");
         }
     }
 
@@ -293,6 +318,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
 
+        IUniswapV2Pair(pair).sync();
         uint amountRemain = _movePriceUp(amountOffer, price, to);
         if (amountRemain != 0) {
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_BUY);
@@ -318,6 +344,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
         require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
 
+        IUniswapV2Pair(pair).sync();
         uint amountRemain = _movePriceDown(amountOffer, price, to);
         if (amountRemain != 0) {
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_SELL);
