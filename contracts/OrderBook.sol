@@ -50,13 +50,13 @@ contract OrderBook is OrderBookBase {
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - amountOut;
             }
-            (accounts, amounts, ) = _takeLimitOrder(LIMIT_BUY, amountIn, price);
+            (accounts, amounts, ) = _takeLimitOrder(LIMIT_BUY, amountOutWithFee, price);
         }
     }
 
     function getAmountAndTakePrice(
         address to,
-        uint direction,
+        uint direction,//TRADE DIRECTION
         uint amountInOffer,
         uint price,
         uint decimal,
@@ -133,12 +133,12 @@ contract OrderBook is OrderBookBase {
         uint reserveBase, uint reserveQuote, uint targetPrice)
     internal view returns (uint amountLeft, uint amountAmmIn) {
         uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差
+        //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证订单价格小于或等于LP价格
         if (curPrice < targetPrice) {
-            uint amountQuoteFix = (reserveBase.mul(targetPrice.sub(curPrice)).div(10 ** priceDecimal)).add(1);
+            uint amountQuoteFix = (reserveBase.mul(targetPrice.sub(curPrice)).div(10 ** priceDecimal));
             require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Input Amount");
             amountAmmIn = _amountAmmIn + amountQuoteFix;
-            amountLeft = _amountLeft.sub(amountQuoteFix);
+            amountLeft = _amountLeft - amountQuoteFix;
         }
     }
 
@@ -146,7 +146,7 @@ contract OrderBook is OrderBookBase {
         uint reserveBase, uint reserveQuote, uint targetPrice)
     internal view returns (uint amountLeft, uint amountAmmIn) {
         uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差
+        //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
         if (curPrice > targetPrice) {
             uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
             .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
@@ -194,7 +194,7 @@ contract OrderBook is OrderBookBase {
             uint amountOutWithFee,,
             address[] memory accounts,
             uint[] memory amounts) =
-                _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
+                _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
             amountOrderBookOut += amountOutWithFee;
             _batchTransfer(quoteToken, accounts, amounts);
 
@@ -220,7 +220,7 @@ contract OrderBook is OrderBookBase {
         }
 
         if (amountAmmIn > 0) {
-            if (amountLeft > 0){
+            if (amountLeft > 0) {
                 (amountLeft, amountAmmIn) =
                     _getFixAmountForMovePriceUp(amountLeft, amountAmmIn, reserveBase, reserveQuote, targetPrice);
             }
@@ -266,7 +266,7 @@ contract OrderBook is OrderBookBase {
             (uint amountInForTake,
             uint amountOutWithFee,,
             address[] memory accounts,
-            uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
+            uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
             amountOrderBookOut += amountOutWithFee;
             _batchTransfer(baseToken, accounts, amounts);
 
@@ -385,7 +385,7 @@ contract OrderBook is OrderBookBase {
         while (index < length && amountLeft > 0) {
             uint orderId = peek(direction, price);
             Order memory order = marketOrders[orderId];
-            require(orderId == order.orderId && order.orderType == 1 && price == order.price,
+            require(orderId == order.orderId && order.orderType == direction && price == order.price,
                 'UniswapV2 OrderBook: Order Invalid');
             accounts[index] = order.to;
             amounts[index] = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
