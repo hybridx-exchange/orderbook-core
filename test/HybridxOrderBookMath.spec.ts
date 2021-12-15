@@ -147,9 +147,9 @@ describe('HybridxOrderBook', () => {
     console.log(results[1].toString())
     console.log(results[2].toString())
     console.log(results[3].toString())
-  })*/
+  })
 
-  /*it('getAmountForAmmMovePrice: 2 -> 1', async () => {
+  it('getAmountForAmmMovePrice: 2 -> 1', async () => {
     console.log("price before:", (await orderBook.getPrice()).toString())
 
     //console.log("base", tokenBase.address)
@@ -171,7 +171,7 @@ describe('HybridxOrderBook', () => {
 
     let amountOut = await orderBook.getAmountOut(results[0], reserves[0], reserves[1]);
     console.log(amountOut.toString());
-  })*/
+  })
 
   it('getAmountForAmmMovePrice: 2 -> 3', async () => {
     //console.log("base", tokenBase.address)
@@ -196,5 +196,5 @@ describe('HybridxOrderBook', () => {
     //console.log("amountOut2:", amountOut.toString());
 
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString());
-  })
+  })*/
 })

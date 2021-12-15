@@ -44,7 +44,7 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  /*it('create:buy limit order', async () => {
+  it('create:buy limit order', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -90,7 +90,7 @@ describe('HybridxOrderBook', () => {
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })*/
+  })
 
   it('create:buy limit order and partial fulfill', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
@@ -115,7 +115,7 @@ describe('HybridxOrderBook', () => {
     console.log("price after:", (await orderBook.getPrice()).toString())
   })
 
-  /*it('create:sell limit order and partial fulfill', async () => {
+  it('create:sell limit order and partial fulfill', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
 
     console.log("price before:", (await orderBook.getPrice()).toString())
@@ -142,7 +142,7 @@ describe('HybridxOrderBook', () => {
     //console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })*/
+  })
 
   /*it('create:gas', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
