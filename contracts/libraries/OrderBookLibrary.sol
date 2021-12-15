@@ -3,11 +3,14 @@ pragma solidity >=0.5.0;
 import "../interfaces/IOrderBook.sol";
 import "../interfaces/IOrderBookFactory.sol";
 import "../interfaces/IUniswapV2Pair.sol";
+import "../interfaces/IWETH.sol";
+import '../libraries/TransferHelper.sol';
 import "./Math.sol";
 import "./SafeMath.sol";
 
 library OrderBookLibrary {
     using SafeMath for uint;
+    using SafeMath for uint112;
 
     uint internal constant LIMIT_BUY = 1;
     uint internal constant LIMIT_SELL = 2;
@@ -70,6 +73,17 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
+    function getPrice(address pair, address baseToken, address quoteToken, uint decimal)
+    internal
+    view
+    returns (uint price) {
+        (uint112 reserveBase, uint112 reserveQuote) = getReserves(pair, baseToken, quoteToken);
+        if (reserveBase != 0) {
+            uint d = reserveQuote.mul(10 ** decimal);
+            price = d.div(reserveBase);
+        }
+    }
+
     //sqrt(9*x*x + 3988000*x*y*price)
     function getSection1ForBuyLimit(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
@@ -100,6 +114,39 @@ library OrderBookLibrary {
     returns (uint amountOut) {
         amountOut = direction == LIMIT_BUY ? reserveOut.sub((reserveIn.add(amountIn)).div(price).div(10**decimal)) : //y-(x+amountIn)/price
             reserveOut.sub((reserveIn.add(amountIn)).mul(price).div(10**decimal)); //y-(x+amountIn)*price
+    }
+
+    function ammMovePrice(
+        uint direction,
+        uint reserveIn,
+        uint reserveOut,
+        uint price,
+        uint decimal,
+        uint _amountLeft,
+        uint _amountAmmIn,
+        uint _amountAmmOut)
+    internal
+    pure
+    returns (uint amountLeft, uint amountAmmIn, uint amountAmmOut) {
+        uint amountInUsed;
+        uint amountOutUsed;
+        (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
+        getAmountForAmmMovePrice(
+            direction,
+            reserveIn,
+            reserveOut,
+            price,
+            decimal);
+        if (amountInUsed > _amountLeft) {
+            amountAmmIn = _amountAmmIn + _amountLeft;
+            amountAmmOut = _amountAmmOut + getAmountOut(_amountLeft, reserveIn, reserveOut);
+            amountLeft = 0;
+        }
+        else {
+            amountAmmIn = _amountAmmIn + amountInUsed;
+            amountAmmOut = _amountAmmOut + amountOutUsed;
+            amountLeft = _amountLeft - amountInUsed;
+        }
     }
 
     //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
@@ -186,6 +233,35 @@ library OrderBookLibrary {
                 (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOutWithoutFee, price,
                     decimal), orderAmount);
             }
+        }
+    }
+
+    function safeTransfer(address token, address to, uint value)
+    internal {
+        TransferHelper.safeTransfer(token, to, value);
+    }
+
+    function batchTransfer(address factory, address token, address[] memory accounts, uint[] memory amounts) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        for(uint i=0; i<accounts.length; i++) {
+            if (WETH == token){
+                IWETH(WETH).withdraw(amounts[i]);
+                TransferHelper.safeTransferETH(accounts[i], amounts[i]);
+            }
+            else {
+                safeTransfer(token, accounts[i], amounts[i]);
+            }
+        }
+    }
+
+    function singleTransfer(address factory, address token, address to, uint amount) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        if (token == WETH) {
+            IWETH(WETH).withdraw(amount);
+            TransferHelper.safeTransferETH(to, amount);
+        }
+        else{
+            safeTransfer(token, to, amount);
         }
     }
 }

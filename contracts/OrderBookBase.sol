@@ -2,8 +2,6 @@ pragma solidity =0.5.16;
 
 import "./interfaces/IERC20.sol";
 import "./libraries/UQ112x112.sol";
-import "./interfaces/IWETH.sol";
-import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
 import "./PriceList.sol";
@@ -23,8 +21,6 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint orderType; //1: limitBuy, 2: limitSell
         uint orderIndex; //用户订单索引，一个用户最多255
     }
-
-    bytes4 private constant SELECTOR_TRANSFER = bytes4(keccak256(bytes('transfer(address,uint256)')));
 
     //名称
     string public constant name = 'Uniswap V2 OrderBook';
@@ -130,36 +126,6 @@ contract OrderBookBase is OrderQueue, PriceList {
     function _updateBalance() internal {
         baseBalance = IERC20(baseToken).balanceOf(address(this));
         quoteBalance = IERC20(quoteToken).balanceOf(address(this));
-    }
-
-    function _safeTransfer(address token, address to, uint value)
-    internal {
-        (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR_TRANSFER, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2 OrderBook: TRANSFER_FAILED');
-    }
-
-    function _batchTransfer(address token, address[] memory accounts, uint[] memory amounts) internal {
-        address WETH = IOrderBookFactory(factory).WETH();
-        for(uint i=0; i<accounts.length; i++) {
-            if (WETH == token){
-                IWETH(WETH).withdraw(amounts[i]);
-                TransferHelper.safeTransferETH( accounts[i], amounts[i]);
-            }
-            else {
-                _safeTransfer(token, accounts[i], amounts[i]);
-            }
-        }
-    }
-
-    function _singleTransfer(address token, address to, uint amount) internal {
-        address WETH = IOrderBookFactory(factory).WETH();
-        if (token == WETH) {
-            IWETH(WETH).withdraw(amount);
-            TransferHelper.safeTransferETH(to, amount);
-        }
-        else{
-            _safeTransfer(token, to, amount);
-        }
     }
 
     uint private unlocked = 1;

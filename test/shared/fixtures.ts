@@ -8,6 +8,7 @@ import ERC20 from '@hybridx-exchange/v2-core/build/ERC20.json'
 import UniswapV2Factory from '@hybridx-exchange/v2-core/build/UniswapV2Factory.json'
 import UniswapV2Pair from '@hybridx-exchange/v2-core/build/UniswapV2Pair.json'
 import OrderBookFactory from '../../build/OrderBookFactory.json'
+import OrderBookLibrary from '../../build/OrderBookLibrary.json'
 import OrderBook from '../../build/OrderBook.json'
 import WETH from '../../build/WETH9.json'
 import {bigNumberify} from "ethers/utils";
@@ -28,6 +29,8 @@ export async function factoryFixture(_: Web3Provider, [wallet]: Wallet[]): Promi
   const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
   const factory = await deployContract(wallet, UniswapV2Factory, [wallet.address], overrides)
   const weth = await deployContract(wallet, WETH, [], overrides)
+  const orderBookLibrary = await deployContract(wallet, OrderBookLibrary, [], overrides)
+  console.log("orderBookLibrary:", orderBookLibrary.address)
   const orderBookFactory = await deployContract(wallet, OrderBookFactory, [factory.address, weth.address], overrides)
   return { tokenA, tokenB, factory, orderBookFactory }
 }
