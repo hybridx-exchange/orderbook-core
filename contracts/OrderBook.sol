@@ -225,7 +225,7 @@ contract OrderBook is OrderBookBase {
                     _getFixAmountForMovePriceUp(amountLeft, amountAmmIn, reserveBase, reserveQuote, targetPrice);
             }
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmIn, amountAmmOut);
-            require(getPrice() >= targetPrice, "UniswapV2 OrderBook: swap to target failed");
+            require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: buy to target failed");
 
             quoteBalance = _getQuoteBalance();
         }
@@ -297,7 +297,7 @@ contract OrderBook is OrderBookBase {
             //update base balance
             baseBalance = _getBaseBalance();
 
-            require(getPrice() <= targetPrice, "UniswapV2 OrderBook: swap to target failed");
+            require(amountLeft == 0 || getPrice() <= targetPrice, "UniswapV2 OrderBook: sell to target failed");
         }
     }
 
