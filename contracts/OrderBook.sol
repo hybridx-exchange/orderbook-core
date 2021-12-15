@@ -135,9 +135,7 @@ contract OrderBook is OrderBookBase {
         uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
         //弥补精度损失造成的LP价格误差
         if (curPrice < targetPrice) {
-            uint amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
-            .sub(reserveBase.mul(targetPrice).div(10 ** priceDecimal)))
-            .add(1);
+            uint amountQuoteFix = (reserveBase.mul(targetPrice.sub(curPrice)).div(10 ** priceDecimal)).add(1);
             require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Input Amount");
             amountAmmIn = _amountAmmIn + amountQuoteFix;
             amountLeft = _amountLeft.sub(amountQuoteFix);
@@ -227,7 +225,7 @@ contract OrderBook is OrderBookBase {
                     _getFixAmountForMovePriceUp(amountLeft, amountAmmIn, reserveBase, reserveQuote, targetPrice);
             }
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmIn, amountAmmOut);
-            //require(getPrice() >= targetPrice, "UniswapV2 OrderBook: swap to target failed");
+            require(getPrice() >= targetPrice, "UniswapV2 OrderBook: swap to target failed");
 
             quoteBalance = _getQuoteBalance();
         }
