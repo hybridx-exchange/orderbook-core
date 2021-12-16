@@ -400,19 +400,6 @@ contract OrderBookBase is OrderQueue, PriceList {
             decimal);
     }
 
-    function getAmountQuoteForPriceUp(
-        uint amountIn,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external
-    pure
-    returns (uint amountOut) {
-        amountOut = OrderBookLibrary.getAmountQuoteForPriceUp(amountIn, reserveIn, reserveOut, price,
-            decimal);
-    }
-
     function getAmountBaseForPriceUp(
         uint amountOut,
         uint reserveIn,
@@ -426,18 +413,6 @@ contract OrderBookBase is OrderQueue, PriceList {
             decimal);
     }
 
-    function getAmountBaseForPriceUp2(
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external
-    pure
-    returns (uint amountIn) {
-        amountIn = OrderBookLibrary.getAmountBaseForPriceUp2(reserveIn, reserveOut, price,
-            decimal);
-    }
-
     function getAmountForOrderBookMovePrice(
         uint direction,
         uint reserveIn,
@@ -447,28 +422,6 @@ contract OrderBookBase is OrderQueue, PriceList {
     external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
         (amountIn, amountOut, reserveInNew, reserveOutNew) =
         OrderBookLibrary.getAmountForOrderBookMovePrice(direction, reserveIn, reserveOut, price, decimal);
-    }
-
-    function getAmountForOrderBookMovePrice2(
-        uint direction,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForOrderBookMovePrice2(direction, reserveIn, reserveOut, price, decimal);
-    }
-
-    function getAmountForAmmMovePrice(
-        uint direction,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForAmmMovePrice(direction, reserveIn, reserveOut, price, decimal);
     }
 
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {

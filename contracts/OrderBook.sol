@@ -73,34 +73,49 @@ contract OrderBook is OrderBookBase {
 
     function _ammMovePrice(
         uint direction,
-        uint _reserveIn,
-        uint _reserveOut,
+        uint _reserveBase,
+        uint _reserveQuote,
         uint price,
-        uint decimal,
         uint _amountLeft,
-        uint _amountAmmIn,
-        uint _amountAmmOut)
+        uint _amountAmmBase,
+        uint _amountAmmQuote)
     private
-    pure
-    returns (uint amountLeft, uint reserveIn, uint reserveOut, uint amountAmmIn, uint amountAmmOut) {
-        uint amountInUsed;
-        uint amountOutUsed;
-        (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
+    view
+    returns (uint amountLeft, uint reserveBase, uint reserveQuote, uint amountAmmBase, uint amountAmmQuote) {
+        uint amountBaseUsed;
+        uint amountQuoteUsed;
+        (amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
         OrderBookLibrary.getAmountForOrderBookMovePrice(
             direction,
-            _reserveIn,
-            _reserveOut,
+            _reserveBase,
+            _reserveQuote,
             price,
-            decimal);
-        if (amountInUsed > _amountLeft) {
-            amountAmmIn = _amountAmmIn + _amountLeft;
-            amountAmmOut = _amountAmmOut + OrderBookLibrary.getAmountOut(_amountLeft, _reserveIn, _reserveOut);
-            amountLeft = 0;
+            priceDecimal);
+        if (direction == LIMIT_BUY) {
+            if (amountQuoteUsed > _amountLeft) {
+                amountAmmQuote = _amountAmmQuote + _amountLeft;
+                amountAmmBase = _amountAmmBase +
+                    OrderBookLibrary.getAmountOut(_amountLeft, _reserveQuote, _reserveBase);
+                amountLeft = 0;
+            }
+            else {
+                amountAmmQuote = _amountAmmQuote +  amountQuoteUsed;
+                amountAmmBase = _amountAmmBase + amountBaseUsed;
+                amountLeft = _amountLeft - amountQuoteUsed;
+            }
         }
         else {
-            amountAmmIn = _amountAmmIn + amountInUsed;
-            amountAmmOut = _amountAmmOut + amountOutUsed;
-            amountLeft = _amountLeft - amountInUsed;
+            if (amountBaseUsed > _amountLeft) {
+                amountAmmBase = _amountAmmBase + _amountLeft;
+                amountAmmQuote = _amountAmmQuote +
+                    OrderBookLibrary.getAmountOut(_amountLeft, _reserveBase, _reserveQuote);
+                amountLeft = 0;
+            }
+            else {
+                amountAmmBase = _amountAmmBase + amountBaseUsed;
+                amountAmmQuote = _amountAmmQuote + amountQuoteUsed;
+                amountLeft = _amountLeft - amountBaseUsed;
+            }
         }
     }
 
@@ -153,7 +168,7 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
                 (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-                    _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price, priceDecimal,
+                    _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price,
                         amountLeft, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
@@ -185,25 +200,9 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
-            uint amountBaseUsed;
-            uint amountQuoteUsed;
-            (amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-            OrderBookLibrary.getAmountForOrderBookMovePrice(
-                LIMIT_BUY,
-                reserveBase,
-                reserveQuote,
-                targetPrice,
-                priceDecimal);
-            if (amountQuoteUsed > amountLeft) {
-                amountAmmQuote += amountLeft;
-                amountAmmBase += OrderBookLibrary.getAmountOut(amountLeft, reserveQuote, reserveBase);
-                amountLeft = 0;
-            }
-            else {
-                amountAmmQuote += amountQuoteUsed;
-                amountAmmBase += amountBaseUsed;
-                amountLeft -= amountQuoteUsed;
-            }
+            (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
+            _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice,
+                amountLeft, amountAmmBase, amountAmmQuote);
         }
 
         if (amountAmmQuote > 0) {
@@ -238,7 +237,7 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
                 (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
-                    _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price, priceDecimal,
+                    _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price,
                         amountLeft, amountAmmIn, amountAmmOut);
                 if (amountLeft == 0) {
                     break;
@@ -270,7 +269,7 @@ contract OrderBook is OrderBookBase {
         // swap to target price when there is no limit order less than the target price
         if (price == 0 || price > targetPrice && amountLeft > 0) {
             (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
-                _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice, priceDecimal,
+                _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice,
                     amountLeft, amountAmmIn, amountAmmOut);
         }
 
