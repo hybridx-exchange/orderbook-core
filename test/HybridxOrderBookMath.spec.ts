@@ -171,7 +171,7 @@ describe('HybridxOrderBook', () => {
 
     let amountOut = await orderBook.getAmountOut(results[0], reserves[0], reserves[1]);
     console.log(amountOut.toString());
-  })
+  })*/
 
   it('getAmountForAmmMovePrice: 2 -> 3', async () => {
     //console.log("base", tokenBase.address)
@@ -192,9 +192,9 @@ describe('HybridxOrderBook', () => {
     console.log("reserveIn:", results[2].toString())
     console.log("reserveOut:", results[3].toString())
 
-    //let amountOut = await orderBook.getAmountOut(results[0], reserves[0], reserves[1]);
-    //console.log("amountOut2:", amountOut.toString());
+    let amountOut = await orderBook.getAmountOut(bigNumberify("2250825417403555356"), reserves[1], reserves[0]);
+    console.log("amountOut2:", amountOut.toString());
 
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString());
-  })*/
+  })
 })

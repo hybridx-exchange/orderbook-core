@@ -129,16 +129,17 @@ contract OrderBook is OrderBookBase {
         IUniswapV2Pair(pair).sync();
     }
 
-    function _getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmIn,
+    function _getFixAmountForMovePriceUp(uint _amountAmmOut,
         uint reserveBase, uint reserveQuote, uint targetPrice)
-    internal view returns (uint amountLeft, uint amountAmmIn) {
+    internal view returns (uint amountAmmOut) {
         uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
         //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证订单价格小于或等于LP价格
         if (curPrice < targetPrice) {
-            uint amountQuoteFix = (reserveBase.mul(targetPrice.sub(curPrice)).div(10 ** priceDecimal));
-            require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Input Amount");
-            amountAmmIn = _amountAmmIn + amountQuoteFix;
-            amountLeft = _amountLeft - amountQuoteFix;
+            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
+            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
+            .add(1);
+            require(_amountAmmOut >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            amountAmmOut = _amountAmmOut - amountBaseFix;
         }
     }
 
@@ -221,8 +222,8 @@ contract OrderBook is OrderBookBase {
 
         if (amountAmmIn > 0) {
             if (amountLeft > 0) {
-                (amountLeft, amountAmmIn) =
-                    _getFixAmountForMovePriceUp(amountLeft, amountAmmIn, reserveBase, reserveQuote, targetPrice);
+                (amountAmmOut) =
+                    _getFixAmountForMovePriceUp(amountAmmOut, reserveBase, reserveQuote, targetPrice);
             }
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmIn, amountAmmOut);
             require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: buy to target failed");
