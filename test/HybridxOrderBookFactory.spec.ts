@@ -43,7 +43,7 @@ describe('HybridxOrderBookFactory', () => {
     TEST_ADDRESSES[1] = fixture.tokenA.address > fixture.tokenB.address ? fixture.tokenA.address : fixture.tokenB.address
   })
 
-  it('feeTo, admin, allPairsLength', async () => {
+  /*it('feeTo, admin, allPairsLength', async () => {
     expect(await factory.feeTo()).to.eq(AddressZero)
     expect(await factory.admin()).to.eq(wallet.address)
     expect(await factory.allPairsLength()).to.eq(0)
@@ -104,5 +104,5 @@ describe('HybridxOrderBookFactory', () => {
 
   it('createOrderBook:reverse', async () => {
     await createOrderBook(TEST_ADDRESSES.slice().reverse() as [string, string])
-  })
+  })*/
 })

@@ -129,35 +129,6 @@ contract OrderBook is OrderBookBase {
         IUniswapV2Pair(pair).sync();
     }
 
-    function _getFixAmountForMovePriceUp(uint _amountAmmOut,
-        uint reserveBase, uint reserveQuote, uint targetPrice)
-    internal view returns (uint amountAmmOut) {
-        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证订单价格小于或等于LP价格
-        if (curPrice < targetPrice) {
-            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
-            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
-            .add(1);
-            require(_amountAmmOut >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
-            amountAmmOut = _amountAmmOut - amountBaseFix;
-        }
-    }
-
-    function _getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmIn,
-        uint reserveBase, uint reserveQuote, uint targetPrice)
-    internal view returns (uint amountLeft, uint amountAmmIn) {
-        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
-        if (curPrice > targetPrice) {
-            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
-            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
-            .add(1);
-            require(_amountLeft >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
-            amountAmmIn = _amountAmmIn + amountBaseFix;
-            amountLeft = _amountLeft.sub(amountBaseFix);
-        }
-    }
-
     /*
         swap to price1 and take the order with price of price1 and
         swap to price2 and take the order with price of price2
@@ -172,8 +143,8 @@ contract OrderBook is OrderBookBase {
     returns (uint amountLeft) {
         //token顺序会导致price计算有问题
         (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-        uint amountAmmIn;
-        uint amountAmmOut;
+        uint amountAmmBase;
+        uint amountAmmQuote;
         uint amountOrderBookOut;
         amountLeft = amountOffer;
 
@@ -182,9 +153,9 @@ contract OrderBook is OrderBookBase {
         while (price != 0 && price <= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
-                (amountLeft, reserveBase, reserveQuote, amountAmmOut, amountAmmIn) =
+                (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
                     _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price, priceDecimal,
-                        amountLeft, amountAmmOut, amountAmmIn);
+                        amountLeft, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -215,17 +186,13 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
-            (amountLeft, reserveBase, reserveQuote, amountAmmOut, amountAmmIn) =
+            (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
                 _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice, priceDecimal,
-                    amountLeft, amountAmmOut, amountAmmIn);
+                    amountLeft, amountAmmBase, amountAmmQuote);
         }
 
-        if (amountAmmIn > 0) {
-            if (amountLeft > 0) {
-                (amountAmmOut) =
-                    _getFixAmountForMovePriceUp(amountAmmOut, reserveBase, reserveQuote, targetPrice);
-            }
-            _ammSwapPrice(to, quoteToken, baseToken, amountAmmIn, amountAmmOut);
+        if (amountAmmQuote > 0) {
+            _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
             require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: buy to target failed");
 
             quoteBalance = _getQuoteBalance();

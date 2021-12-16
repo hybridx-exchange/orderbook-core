@@ -50,7 +50,7 @@ describe('HybridxOrderBook', () => {
     const minAmount = await orderBook.minAmount()
     console.log("minAmount:", minAmount.toString())
 
-    let limitAmount = bigNumberify("1000000000000000000")
+    let limitAmount = bigNumberify("10000000000000000000")
     console.log("limitAmount:", limitAmount.toString())
 
     await tokenQuote.transfer(orderBook.address, limitAmount)
