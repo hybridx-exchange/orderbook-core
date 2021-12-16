@@ -44,116 +44,133 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  /*it('create:buy limit order', async () => {
+  /*it('create:buy limit order market', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
     console.log("minAmount:", minAmount.toString())
 
-    const limitAmount = expandTo18Decimals(10)
+    let limitAmount = expandTo18Decimals(1)
     console.log("limitAmount:", limitAmount.toString())
+
     await tokenQuote.transfer(orderBook.address, limitAmount)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
 
-    await expect(orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address))
-        .to.emit(orderBook, 'OrderCreated')
-        .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 1)
+    let order = await orderBook.marketOrders(1);
+    printOrder(order)
+    //console.log("market book:", await orderBook.marketBook(1, 1))
+    //console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
-    const order = await orderBook.marketOrders(1);
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })*/
+
+  it('create:buy limit order market2', async () => {
+    await factory.setOrderBookFactory(orderBookFactory.address);
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    let limitAmount = expandTo18Decimals(10)
+    console.log("limitAmount:", limitAmount.toString())
+
+    await tokenQuote.transfer(orderBook.address, limitAmount)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+
+    let order = await orderBook.marketOrders(1);
+    printOrder(order)
+    //console.log("market book:", await orderBook.marketBook(1, 1))
+    //console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })
+
+  /*it('create:sell limit order market', async () => {
+    await factory.setOrderBookFactory(orderBookFactory.address);
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    let limitAmount = expandTo18Decimals(1)
+    console.log("limitAmount:", limitAmount.toString())
+
+    await tokenBase.transfer(orderBook.address, limitAmount)
+    await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
+
+    let order = await orderBook.marketOrders(1);
+    printOrder(order)
+    console.log("market book:", await orderBook.marketBook(2, 1))
+    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+    console.log("price after:", (await orderBook.getPrice()).toString())
+  })
+
+  it('create:buy then sell limit order match', async () => {
+    await factory.setOrderBookFactory(orderBookFactory.address);
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    let limitAmount = expandTo18Decimals(10)
+    console.log("limitAmount:", limitAmount.toString())
+
+    await tokenQuote.transfer(orderBook.address, limitAmount)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+
+    let order = await orderBook.marketOrders(1);
     printOrder(order)
     console.log("market book:", await orderBook.marketBook(1, 1))
     console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(2)))
     console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
-    console.log("price after:", (await orderBook.getPrice()).toString())
-  })
-
-  it('create:sell limit order', async () => {
-    await factory.setOrderBookFactory(orderBookFactory.address);
-    console.log("price before:", (await orderBook.getPrice()).toString())
-    const minAmount = await orderBook.minAmount()
-    console.log("minAmount:", minAmount.toString())
-
-    const limitAmount = expandTo18Decimals(10)
-    console.log("limitAmount:", limitAmount.toString())
+    limitAmount = expandTo18Decimals(20)
     await tokenBase.transfer(orderBook.address, limitAmount)
+    await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
 
-    await expect(orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address))
-        .to.emit(orderBook, 'OrderCreated')
-        .withArgs(wallet.address, wallet.address, limitAmount, limitAmount, expandTo18Decimals(2), 2)
-
-    const order = await orderBook.marketOrders(1);
+    order = await orderBook.marketOrders(1);
+    printOrder(order)
+    order = await orderBook.marketOrders(2);
     printOrder(order)
     console.log("market book:", await orderBook.marketBook(2, 1))
-    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
+    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(3)))
     console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })*/
+  })
 
-  /*it('create:buy limit order and partial fulfill', async () => {
+  it('create:sell then buy limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
     console.log("minAmount:", minAmount.toString())
 
-    const limitAmount = expandTo18Decimals(5)
+    let limitAmount = expandTo18Decimals(10)
     console.log("limitAmount:", limitAmount.toString())
+
+    await tokenBase.transfer(orderBook.address, limitAmount)
+    await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+
+    let order = await orderBook.marketOrders(1);
+    printOrder(order)
+    console.log("market book:", await orderBook.marketBook(2, 1))
+    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
+    limitAmount = expandTo18Decimals(20)
     await tokenQuote.transfer(orderBook.address, limitAmount)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
 
-    await expect(orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address, overrides))
-        .to.emit(orderBook, 'OrderCreated')
-
-    const order = await orderBook.marketOrders(1);
-    console.log("order:",
-        order[0].toString(),
-        order[1].toString(),
-        order[2].toString(),
-        order[3].toString(),
-        order[4].toString(),
-        order[5].toString(),
-        order[6].toString(),
-        order[7].toString())
+    order = await orderBook.marketOrders(1);
+    printOrder(order)
+    order = await orderBook.marketOrders(2);
+    printOrder(order)
     console.log("market book:", await orderBook.marketBook(1, 1))
     console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(3)))
-    console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
   })*/
-
-  it('create:sell limit order and partial fulfill', async () => {
-    await factory.setOrderBookFactory(orderBookFactory.address);
-
-    console.log("price before:", (await orderBook.getPrice()).toString())
-    const minAmount = await orderBook.minAmount()
-    console.log("minAmount:", minAmount.toString())
-
-    const limitAmount = expandTo18Decimals(4)
-    console.log("limitAmount:", limitAmount.toString())
-    await tokenBase.transfer(orderBook.address, limitAmount)
-
-    await expect(orderBook.createSellLimitOrder(wallet.address, bigNumberify("1389583680700000000"),
-     wallet.address, overrides))
-        .to.emit(orderBook, 'OrderCreated')
-
-    const order = await orderBook.marketOrders(1)
-    printOrder(order)
-
-    console.log("market book:", await orderBook.marketBook(2, 1))
-    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
-    console.log("user order:", await orderBook.userOrders(wallet.address, 0))
-    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
-
-    console.log("price after:", (await orderBook.getPrice()).toString())
-  })
-
-  it('create:gas', async () => {
-    await factory.setOrderBookFactory(orderBookFactory.address);
-    await tokenBase.transfer(orderBook.address, expandTo18Decimals(10))
-    const tx = await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
-    const receipt = await tx.wait()
-    console.log(receipt.gasUsed.toString())
-  })
 })
