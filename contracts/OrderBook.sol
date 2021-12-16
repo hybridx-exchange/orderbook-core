@@ -86,7 +86,7 @@ contract OrderBook is OrderBookBase {
         uint amountInUsed;
         uint amountOutUsed;
         (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-        OrderBookLibrary.getAmountForAmmMovePrice(
+        OrderBookLibrary.getAmountForOrderBookMovePrice(
             direction,
             _reserveIn,
             _reserveOut,
@@ -117,7 +117,7 @@ contract OrderBook is OrderBookBase {
             (uint(0), amountAmmOut) : (amountAmmOut, uint(0));
 
         address WETH = IOrderBookFactory(factory).WETH();
-        if (WETH == quoteToken) {
+        if (WETH == tokenOut) {
             IUniswapV2Pair(pair).swapOriginal(amount0Out, amount1Out, address(this), new bytes(0));
             IWETH(WETH).withdraw(amountAmmOut);
             TransferHelper.safeTransferETH(to, amountAmmOut);
@@ -141,7 +141,6 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        //token顺序会导致price计算有问题
         (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         uint amountAmmBase;
         uint amountAmmQuote;
@@ -186,9 +185,25 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
-            (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-                _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice, priceDecimal,
-                    amountLeft, amountAmmBase, amountAmmQuote);
+            uint amountBaseUsed;
+            uint amountQuoteUsed;
+            (amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
+            OrderBookLibrary.getAmountForOrderBookMovePrice(
+                LIMIT_BUY,
+                reserveBase,
+                reserveQuote,
+                targetPrice,
+                priceDecimal);
+            if (amountQuoteUsed > amountLeft) {
+                amountAmmQuote += amountLeft;
+                amountAmmBase += OrderBookLibrary.getAmountOut(amountLeft, reserveQuote, reserveBase);
+                amountLeft = 0;
+            }
+            else {
+                amountAmmQuote += amountQuoteUsed;
+                amountAmmBase += amountBaseUsed;
+                amountLeft -= amountQuoteUsed;
+            }
         }
 
         if (amountAmmQuote > 0) {
