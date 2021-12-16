@@ -144,6 +144,36 @@ contract OrderBook is OrderBookBase {
         IUniswapV2Pair(pair).sync();
     }
 
+    function _getFixAmountForMovePriceUp(uint _amountAmmBase,
+        uint reserveBase, uint reserveQuote, uint targetPrice)
+    public view returns (uint amountAmmBase) {
+        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证订单价格小于或等于LP价格
+        //x' = y/p1 - y/p2
+        if (curPrice < targetPrice) {
+            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
+            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)));
+            amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
+            require(_amountAmmBase >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            amountAmmBase = _amountAmmBase - amountBaseFix;
+        }
+    }
+
+    function _getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmIn,
+        uint reserveBase, uint reserveQuote, uint targetPrice)
+    internal view returns (uint amountLeft, uint amountAmmIn) {
+        uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
+        if (curPrice > targetPrice) {
+            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(curPrice)
+            .sub(reserveQuote.mul(10 ** priceDecimal).div(targetPrice)))
+            .add(1);
+            require(_amountLeft >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            amountAmmIn = _amountAmmIn + amountBaseFix;
+            amountLeft = _amountLeft.sub(amountBaseFix);
+        }
+    }
+
     /*
         swap to price1 and take the order with price of price1 and
         swap to price2 and take the order with price of price2
@@ -206,8 +236,13 @@ contract OrderBook is OrderBookBase {
         }
 
         if (amountAmmQuote > 0) {
+            if (amountLeft > 0) {
+                amountAmmBase =
+                    _getFixAmountForMovePriceUp(amountAmmBase, reserveBase, reserveQuote, targetPrice);
+            }
+
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
-            require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: buy to target failed");
+            require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: Buy price mismatch");
 
             quoteBalance = _getQuoteBalance();
         }

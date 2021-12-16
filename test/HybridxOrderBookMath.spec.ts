@@ -208,5 +208,10 @@ describe('HybridxOrderBook', () => {
     console.log("price swap:", (results[1].mul(bigNumberify(10).pow(18)).div(results[0])).toString())
 
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString())
+
+    let amountBase3 = await orderBook._getFixAmountForMovePriceUp(results[0], results[2], results[3], price)
+    console.log("amountBase3", amountBase3.toString())
+
+    console.log("price after2:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2].sub(results[0].sub(amountBase3)))).toString())
   })
 })
