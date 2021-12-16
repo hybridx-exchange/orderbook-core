@@ -44,7 +44,7 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  it('create:buy limit order market', async () => {
+  /*it('create:buy limit order market', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -63,7 +63,7 @@ describe('HybridxOrderBook', () => {
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })
+  })*/
 
   it('create:buy limit order market2', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);

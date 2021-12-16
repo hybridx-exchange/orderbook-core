@@ -180,13 +180,13 @@ describe('HybridxOrderBook', () => {
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString());
   })*/
 
-  it('getAmountForAmmMovePrice: 2 -> 3', async () => {
+  /*it('getAmountForAmmMovePrice: 2 -> 3', async () => {
     //console.log("base", tokenBase.address)
     //console.log("quote", tokenQuote.address)
     //console.log("token0", token0.address)
     //console.log("token1", token1.address)
 
-    const reserves = await orderBook.getReserves()
+    let reserves = await orderBook.getReserves()
     console.log("reserve base:", reserves[0].toString())
     console.log("reserve quote:", reserves[1].toString())
     console.log("price before:", (await orderBook.getPrice()).toString())
@@ -209,9 +209,46 @@ describe('HybridxOrderBook', () => {
 
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString())
 
-    let amountBase3 = await orderBook._getFixAmountForMovePriceUp(results[0], results[2], results[3], price)
-    console.log("amountBase3", amountBase3.toString())
+    results = await orderBook._getFixAmountForMovePriceUp(bigNumberify("10000000000000000000"), results[1], results[2], results[3], price)
+    console.log("amountBase3", results[0].toString(), results[1].toString())
 
-    console.log("price after2:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2].sub(results[0].sub(amountBase3)))).toString())
-  })
+    //console.log("price after2:", (amountQuote3.mul(bigNumberify(10).pow(18)).div(results[2])).toString())
+
+    await tokenQuote.transfer(pair.address, results[1], overrides)
+    await pair.swap(amountBase3, bigNumberify(0), wallet.address, '0x', overrides)
+    console.log("price after3:", (await orderBook.getPrice()).toString())
+    await pair.sync(overrides)
+    console.log("price after4:", (await orderBook.getPrice()).toString())
+  })*/
+  /*it('getAmountForAmmMovePrice: 2 -> 3', async () => {
+    let reserves = await orderBook.getReserves()
+    console.log("reserve base:", reserves[0].toString())
+    console.log("reserve quote:", reserves[1].toString())
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const price = bigNumberify("2419340000000000000")//453305446940074565
+    const decimal = 18
+
+    let results = await orderBook._ammMovePrice(1, reserves[0], reserves[1], price,
+        bigNumberify("9000000000000000000"), bigNumberify(0), bigNumberify(0))
+    console.log("amount left:", results[0].toString())
+    console.log("reserve base:", results[1].toString())
+    console.log("reserve quote:", results[2].toString())
+    console.log("amount base:", results[3].toString())
+    console.log("amount quote:", results[4].toString())
+
+    console.log("price after:", (results[2].mul(bigNumberify(10).pow(18)).div(results[1])).toString())
+
+    let results2 = await orderBook._getFixAmountForMovePriceUp(results[0], results[4], results[1], results[2], price)
+    console.log("amountBase3", results2[0].toString(), results2[1].toString())
+
+    let amountBase1 = await orderBook.getAmountOut(bigNumberify(results[4]), reserves[1], reserves[0])
+    console.log("amountBase1:", amountBase1.toString())
+
+    let amountBase2 = await orderBook.getAmountBaseForPriceUp(results[4], reserves[0], reserves[1], price, decimal)
+    console.log("amountBase2:", amountBase2.toString())
+
+    console.log("price swap:", (results[4].mul(bigNumberify(10).pow(18)).div(results[3])).toString())
+
+    console.log("price after:", (results[2].mul(bigNumberify(10).pow(18)).div(results[1])).toString())
+  })*/
 })
