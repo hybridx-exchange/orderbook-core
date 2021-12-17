@@ -31,16 +31,6 @@ library OrderBookLibrary {
         amountGet = amountOffer.mul(price).div(10 ** decimal);
     }
 
-    //根据价格计算使用amountIn换出的amountOut的数量
-    function getAmountOutWithPrice(uint amountIn, uint price, uint decimal) internal pure returns (uint amountOut){
-        amountOut = amountIn.mul(price) / 10 ** decimal;
-    }
-
-    //根据价格计算换出的amountOut需要使用amountIn的数量
-    function getAmountInWithPrice(uint amountOut, uint price, uint decimal) internal pure returns (uint amountIn){
-        amountIn = amountOut.mul(10 ** decimal) / price;
-    }
-
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
         require(amountIn > 0, 'OrderBookLibrary: INSUFFICIENT_INPUT_AMOUNT');
@@ -123,7 +113,7 @@ library OrderBookLibrary {
 
     //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
     //amountOut = y-(x+amountIn)*price
-    function getAmountForOrderBookMovePrice(uint direction, uint reserveBase, uint reserveQuote, uint price, uint decimal)
+    function getAmountForMovePrice(uint direction, uint reserveBase, uint reserveQuote, uint price, uint decimal)
     internal pure returns (uint amountBase, uint amountQuote, uint reserveBaseNew, uint reserveQuoteNew) {
         if (direction == LIMIT_BUY) {
             uint section1 = getSection1ForPriceUp(reserveBase, reserveQuote, price, decimal);
@@ -144,86 +134,74 @@ library OrderBookLibrary {
         }
     }
 
-    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
-    //amountOut = y-(x+amountIn)*price
-    function getAmountForAmmMovePrice(uint direction, uint reserveBase, uint reserveQuote, uint price, uint decimal)
-    internal pure returns (uint amountBase, uint amountQuote, uint reserveBaseNew, uint reserveQuoteNew) {
-        if (direction == LIMIT_BUY) {
-            uint section1 = getSection1ForPriceUp(reserveBase, reserveQuote, price, decimal);
-            uint section2 = reserveQuote.mul(1997);
-            amountQuote = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountBase = getAmountOut(amountQuote, reserveQuote, reserveBase);
-            (reserveBaseNew, reserveQuoteNew) = (reserveBase - amountBase, reserveQuote + amountQuote);
-        }
-        else if (direction == LIMIT_SELL) {
-            uint section1 = getSection1ForPriceDown(reserveBase, reserveQuote, price, decimal);
-            uint section2 = reserveBase.mul(1997);
-            amountBase = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountQuote = amountBase == 0 ? 0 : getAmountOut(amountBase, reserveBase, reserveQuote);
-            (reserveBaseNew, reserveQuoteNew) = (reserveBase + amountBase, reserveQuote - amountQuote);
-        }
-        else {
-            (reserveBaseNew, reserveQuoteNew) = (reserveBase, reserveQuote);
-        }
-    }
-
     //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
     //手续费应该包含在amountOutWithFee中
     function getAmountOutForTakePrice(uint direction, uint amountInOffer, uint price, uint decimal, uint orderAmount)
-    internal pure returns (uint amountIn, uint amountOutWithFee) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
+    internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
+        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
-            uint amountOut = getAmountOutWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+            uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountIn = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;//吃掉所有
+                amountOut = orderAmount.mul(997).div(1000);
                 //amountIn = amountOutWithoutFee * price
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOutWithoutFee, price, decimal),
-                orderAmount);
+                amountIn = getSellAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee.sub(amountOut);
             }
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
+        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price
-            uint amountOut = getAmountInWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+            uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountIn = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;
+                amountOut = orderAmount.mul(997).div(1000);
                 //amountIn = amountOutWithoutFee / price
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOutWithoutFee, price,
-                    decimal), orderAmount);
+                amountIn = getBuyAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - amountOut;
             }
         }
     }
 
     //期望获得amountOutExpect，需要投入多少amountIn
     function getAmountInForTakePrice(uint direction, uint amountOutExpect, uint price, uint decimal, uint orderAmount)
-    internal pure returns (uint amountIn, uint amountOutWithFee) {
+    internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
         if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
-            uint amountOut = amountOutExpect.mul(997) / 1000;
-            if (amountOut <= orderAmount) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOut, price, decimal), amountOutExpect);
+            uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
+            if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - orderAmountWithoutFee;
+                amountIn = getSellAmountWithPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;//吃掉所有
+                amountOutWithFee = amountOutExpect;
+                uint amountOutWithoutFee = amountOutExpect.mul(997).div(1000);
+                fee = amountOutWithFee - amountOutWithoutFee;
                 //amountIn = amountOutWithoutFee * price
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOutWithoutFee, price, decimal),
-                orderAmount);
+                amountIn = getSellAmountWithPrice(amountOutWithoutFee, price, decimal);
             }
         }
         else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
-            uint amountOut = amountOutExpect.mul(997) / 1000;
-            if (amountOut <= orderAmount) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOut, price, decimal), amountOutExpect);
+            uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
+            if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - orderAmountWithoutFee;
+                amountIn = getSellAmountWithPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;
-                //amountIn = amountOutWithoutFee / price
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOutWithoutFee, price,
-                    decimal), orderAmount);
+                amountOutWithFee = amountOutExpect;
+                uint amountOutWithoutFee = amountOutExpect.mul(997).div(1000);
+                fee = amountOutWithFee - amountOutWithoutFee;
+                amountIn = getSellAmountWithPrice(amountOutWithoutFee, price, decimal);
             }
         }
     }
