@@ -372,12 +372,12 @@ contract OrderBookBase is OrderQueue, PriceList {
         amount = listAgg(direction, next);
     }
 
-    function getReserves()
+    /*function getReserves()
     external
     view
     returns (uint112 reserveBase, uint112 reserveQuote) {
         (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-    }
+    }*/
 
     /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
     external
