@@ -1,5 +1,7 @@
 pragma solidity =0.5.16;
 
+//pragma experimental ABIEncoderV2;//for decode [] output
+
 import "./libraries/OrderBookLibrary.sol";
 import "./libraries/Arrays.sol";
 import "./OrderBookBase.sol";
@@ -16,8 +18,8 @@ contract OrderBook is OrderBookBase {
         uint price,
         uint decimal,
         uint orderAmount)
-    private
-    returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accounts, uint[] memory amounts) {
+    internal
+    returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accountsTo, uint[] memory amountsTo) {
         if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
             uint amountOut = OrderBookLibrary.getBuyAmountWithPrice(amountInOffer, price, decimal);
@@ -33,7 +35,7 @@ contract OrderBook is OrderBookBase {
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee.sub(amountOut);
             }
-            (accounts, amounts, ) = _takeLimitOrder(LIMIT_SELL, amountOutWithFee, price);
+            (accountsTo, amountsTo, ) = _takeLimitOrder(LIMIT_SELL, amountOutWithFee, price);
         }
         else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price
@@ -50,7 +52,7 @@ contract OrderBook is OrderBookBase {
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - amountOut;
             }
-            (accounts, amounts, ) = _takeLimitOrder(LIMIT_BUY, amountOutWithFee, price);
+            (accountsTo, amountsTo, ) = _takeLimitOrder(LIMIT_BUY, amountOutWithFee, price);
         }
     }
 
@@ -404,20 +406,24 @@ contract OrderBook is OrderBookBase {
         uint amount,
         uint price)
     internal
-    returns (address[] memory accounts, uint[] memory amounts, uint amountUsed) {
+    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
         uint amountLeft = amount;
         uint index;
         uint length = length(direction, price);
-        accounts = new address[](length);
-        amounts = new uint[](length);
+        accountsTo = new address[](length);
+        amountsTo = new uint[](length);
+        uint decimal = priceDecimal;
         while (index < length && amountLeft > 0) {
             uint orderId = peek(direction, price);
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == direction && price == order.price,
                 'UniswapV2 OrderBook: Order Invalid');
-            accounts[index] = order.to;
-            amounts[index] = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
-            order.amountRemain = order.amountRemain - amounts[index];
+            accountsTo[index] = order.to;
+            uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
+            order.amountRemain = order.amountRemain - amountTake;
+            amountsTo[index] = direction == LIMIT_BUY ?
+                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(997).div(1000), price, decimal) :
+                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(997).div(1000), price, decimal);
 
             if (order.amountRemain != 0) {
                 marketOrders[orderId].amountRemain = order.amountRemain;
@@ -440,7 +446,7 @@ contract OrderBook is OrderBookBase {
             //delete the last element
             userOrders[order.owner].pop();
 
-            amountLeft = amountLeft - amounts[index++];
+            amountLeft = amountLeft - amountTake;
         }
 
         amountUsed = amount - amountLeft;
