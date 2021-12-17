@@ -87,7 +87,7 @@ contract OrderBook is OrderBookBase {
         uint amountBaseUsed;
         uint amountQuoteUsed;
         (amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-        OrderBookLibrary.getAmountForOrderBookMovePrice(
+        OrderBookLibrary.getAmountForMovePrice(
             direction,
             _reserveBase,
             _reserveQuote,
@@ -510,7 +510,7 @@ contract OrderBook is OrderBookBase {
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
             (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
-            OrderBookLibrary.getAmountForOrderBookMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+            OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountOutUsed = amountInUsed > amountInLeft ?
                 OrderBookLibrary.getAmountOut(amountInLeft, reserveInRet, reserveOutRet) : amountOutUsed;
@@ -555,7 +555,7 @@ contract OrderBook is OrderBookBase {
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
             (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
-            OrderBookLibrary.getAmountForOrderBookMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+            OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountInUsed = amountOutUsed > amountOutLeft ?
                 OrderBookLibrary.getAmountIn(amountOutLeft, reserveInRet, reserveOutRet) : amountInUsed;
@@ -605,7 +605,7 @@ contract OrderBook is OrderBookBase {
                 uint amountInUsed;
                 uint amountOutUsed;
                 (amountInUsed, amountOutUsed, reserveIn, reserveOut) =
-                OrderBookLibrary.getAmountForAmmMovePrice(
+                OrderBookLibrary.getAmountForMovePrice(
                     tradeDir,
                     reserveIn,
                     reserveOut,

@@ -387,7 +387,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         (10**decimal).div(price));
     }*/
 
-    function getAmountQuoteForPriceDown(
+    /*function getAmountQuoteForPriceDown(
         uint amountIn,
         uint reserveIn,
         uint reserveOut,
@@ -421,7 +421,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint decimal)
     external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
         (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForOrderBookMovePrice(direction, reserveIn, reserveOut, price, decimal);
+        OrderBookLibrary.getAmountForMovePrice(direction, reserveIn, reserveOut, price, decimal);
     }
 
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
@@ -440,5 +440,5 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint numerator = reserveIn.mul(amountOut).mul(1000);
         uint denominator = reserveOut.sub(amountOut).mul(997);
         amountIn = (numerator / denominator).add(1);
-    }
+    }*/
 }
