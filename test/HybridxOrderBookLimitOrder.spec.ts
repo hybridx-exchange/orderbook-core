@@ -63,7 +63,7 @@ describe('HybridxOrderBook', () => {
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })*/
+  })
 
   it('create:buy limit order market2', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
@@ -84,7 +84,7 @@ describe('HybridxOrderBook', () => {
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after:", (await orderBook.getPrice()).toString())
-  })
+  })*/
 
   /*it('create:sell limit order market', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
@@ -104,9 +104,29 @@ describe('HybridxOrderBook', () => {
     console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
     console.log("price after:", (await orderBook.getPrice()).toString())
+  })*/
+
+  it('create:sell limit order market2', async () => {
+    await factory.setOrderBookFactory(orderBookFactory.address);
+    console.log("price before:", (await orderBook.getPrice()).toString())
+    const minAmount = await orderBook.minAmount()
+    console.log("minAmount:", minAmount.toString())
+
+    let limitAmount = bigNumberify("2074179765993714054")//expandTo18Decimals(1)
+    console.log("limitAmount:", limitAmount.toString())
+
+    await tokenBase.transfer(orderBook.address, limitAmount)
+    await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
+
+    let order = await orderBook.marketOrders(0);
+    printOrder(order)
+    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(1)))
+    console.log("user orders:", await orderBook.getUserOrders(wallet.address))
+
+    console.log("price after:", (await orderBook.getPrice()).toString())
   })
 
-  it('create:buy then sell limit order match', async () => {
+  /*it('create:buy then sell limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -125,6 +145,8 @@ describe('HybridxOrderBook', () => {
     console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
+    console.log("price after1:", (await orderBook.getPrice()).toString())
+
     limitAmount = expandTo18Decimals(20)
     await tokenBase.transfer(orderBook.address, limitAmount)
     await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
@@ -138,7 +160,7 @@ describe('HybridxOrderBook', () => {
     console.log("user order:", await orderBook.userOrders(wallet.address, 0))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
-    console.log("price after:", (await orderBook.getPrice()).toString())
+    console.log("price after2:", (await orderBook.getPrice()).toString())
   })
 
   it('create:sell then buy limit order match', async () => {
@@ -159,6 +181,8 @@ describe('HybridxOrderBook', () => {
     console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(2)))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
+    console.log("price after1:", (await orderBook.getPrice()).toString())
+
     limitAmount = expandTo18Decimals(20)
     await tokenQuote.transfer(orderBook.address, limitAmount)
     await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
@@ -171,6 +195,6 @@ describe('HybridxOrderBook', () => {
     console.log("range book:", await orderBook.rangeBook(1, expandTo18Decimals(3)))
     console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
-    console.log("price after:", (await orderBook.getPrice()).toString())
+    console.log("price after2:", (await orderBook.getPrice()).toString())
   })*/
 })

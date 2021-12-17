@@ -149,7 +149,7 @@ describe('HybridxOrderBook', () => {
     console.log(results[3].toString())
   })*/
 
-  /*it('getAmountForAmmMovePrice: 2 -> 1', async () => {
+  it('getAmountForAmmMovePrice: 2 -> 1', async () => {
     console.log("price before:", (await orderBook.getPrice()).toString())
 
     //console.log("base", tokenBase.address)
@@ -175,10 +175,13 @@ describe('HybridxOrderBook', () => {
     let amountQuote2 = await orderBook.getAmountQuoteForPriceDown(bigNumberify(results[0]), reserves[0], reserves[1], price, decimal)
     console.log("amountQuote2:", amountQuote2.toString())
 
+    let results2 = await orderBook._getFixAmountForMovePriceDown(bigNumberify(1), results[0], results[2], results[3], price)
+    console.log(results2[0].toString(), results2[1].toString())
+
     console.log("price swap:", (results[1].mul(bigNumberify(10).pow(18)).div(results[0])).toString());
 
     console.log("price after:", (results[3].mul(bigNumberify(10).pow(18)).div(results[2])).toString());
-  })*/
+  })
 
   /*it('getAmountForAmmMovePrice: 2 -> 3', async () => {
     //console.log("base", tokenBase.address)

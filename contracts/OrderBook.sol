@@ -155,14 +155,16 @@ contract OrderBook is OrderBookBase {
                 .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
             require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Output Amount");
-            amountAmmQuote = _amountAmmQuote + amountQuoteFix;
-            amountLeft = _amountLeft.sub(amountQuoteFix);
+            (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
+        }
+        else {
+            (amountLeft, amountAmmQuote) = (_amountLeft, _amountAmmQuote);
         }
     }
 
     function _getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmBase,
         uint reserveBase, uint reserveQuote, uint targetPrice)
-    internal view returns (uint amountLeft, uint amountAmmBase) {
+    public view returns (uint amountLeft, uint amountAmmBase) {
         uint curPrice = OrderBookLibrary.getPrice(reserveBase, reserveQuote, priceDecimal);
         //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
         //x' = y/p1 - y/p2, y不变，增加x，使价格变小
@@ -171,8 +173,10 @@ contract OrderBook is OrderBookBase {
             .sub(reserveQuote.mul(10 ** priceDecimal).div(curPrice)));
             amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
             require(_amountLeft >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
-            amountAmmBase = _amountAmmBase + amountBaseFix;
-            amountLeft = _amountLeft.sub(amountBaseFix);
+            (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
+        }
+        else {
+            (amountLeft, amountAmmBase) = (_amountLeft, _amountAmmBase);
         }
     }
 
@@ -264,8 +268,8 @@ contract OrderBook is OrderBookBase {
     returns (uint amountLeft) {
         (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         amountLeft = amountOffer;
-        uint amountAmmIn;
-        uint amountAmmOut;
+        uint amountAmmBase;
+        uint amountAmmQuote;
         uint amountOrderBookOut;
 
         uint price = nextPrice(LIMIT_BUY, 0);
@@ -273,9 +277,9 @@ contract OrderBook is OrderBookBase {
         while (price != 0 && price >= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
-                (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
+                (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
                     _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price,
-                        amountLeft, amountAmmIn, amountAmmOut);
+                        amountLeft, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -305,13 +309,18 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (price == 0 || price > targetPrice && amountLeft > 0) {
-            (amountLeft, reserveBase, reserveQuote, amountAmmIn, amountAmmOut) =
+            (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
                 _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice,
-                    amountLeft, amountAmmIn, amountAmmOut);
+                    amountLeft, amountAmmBase, amountAmmQuote);
         }
 
-        if (amountAmmIn > 0) {
-            _ammSwapPrice(to, baseToken, quoteToken, amountAmmIn, amountAmmOut);
+        if (amountAmmBase > 0) {
+            if (amountLeft > 0) {
+                (amountLeft, amountAmmBase) =
+                _getFixAmountForMovePriceDown(amountLeft, amountAmmBase, reserveBase, reserveQuote, targetPrice);
+            }
+
+            _ammSwapPrice(to, baseToken, quoteToken, amountAmmBase, amountAmmQuote);
 
             //update base balance
             baseBalance = _getBaseBalance();
@@ -379,12 +388,12 @@ contract OrderBook is OrderBookBase {
         _removeLimitOrder(o);
 
         //refund
-        address token = o.orderType == 1 ? quoteToken : baseToken;
+        address token = o.orderType == LIMIT_BUY ? quoteToken : baseToken;
         _singleTransfer(token, o.to, o.amountRemain);
 
         //update token balance
         uint balance = IERC20(token).balanceOf(address(this));
-        if (o.orderType == 1) quoteBalance = balance;
+        if (o.orderType == LIMIT_BUY) quoteBalance = balance;
         else baseBalance = balance;
 
         emit OrderCanceled(o.owner, o.to, o.amountOffer, o.amountRemain, o.price, o.orderType);
