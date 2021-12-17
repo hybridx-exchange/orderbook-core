@@ -509,8 +509,8 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
-            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForAmmMovePrice(
-                tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
+            OrderBookLibrary.getAmountForOrderBookMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountOutUsed = amountInUsed > amountInLeft ?
                 OrderBookLibrary.getAmountOut(amountInLeft, reserveInRet, reserveOutRet) : amountOutUsed;
@@ -525,13 +525,13 @@ contract OrderBook is OrderBookBase {
             }
 
             //计算消耗掉一个价格的挂单需要的amountIn数量
-            (uint amountInForTake, uint amountOutWithFee) = OrderBookLibrary.getAmountOutForTakePrice(
-                orderDir, amountInLeft, price, priceDecimal, amount);
+            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountOutForTakePrice(
+                tradeDir, amountInLeft, price, priceDecimal, amount);
             amountOutGet += amountOutWithFee;
             if (amountInLeft > amountInForTake) {
                 amountInLeft = amountInLeft - amountInForTake;
             }
-            else{
+            else {
                 amountInLeft = 0;
                 break;
             }
@@ -554,8 +554,8 @@ contract OrderBook is OrderBookBase {
             uint amountInUsed;
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
-            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) = OrderBookLibrary.getAmountForAmmMovePrice(
-                tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+            (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
+            OrderBookLibrary.getAmountForOrderBookMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountInUsed = amountOutUsed > amountOutLeft ?
                 OrderBookLibrary.getAmountIn(amountOutLeft, reserveInRet, reserveOutRet) : amountInUsed;
@@ -570,7 +570,7 @@ contract OrderBook is OrderBookBase {
             }
 
             //计算消耗掉一个价格的挂单需要的amountOut数量
-            (uint amountInForTake, uint amountOutWithFee) = OrderBookLibrary.getAmountInForTakePrice(orderDir,
+            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
                 amountOutLeft, price, priceDecimal, amount);
             amountInGet += amountInForTake;
             if (amountOutLeft > amountOutWithFee) {
@@ -594,9 +594,7 @@ contract OrderBook is OrderBookBase {
 
         //direction for tokenA swap to tokenB
         uint tradeDir = tradeDirection(tokenIn);
-        require(tradeDir == LIMIT_SELL, "tradeDir != LIMIT_SELL");
         uint orderDir = OrderBookLibrary.getOppositeDirection(tradeDir);
-        require(orderDir == LIMIT_BUY, "orderDir != LIMIT_BUY");
         uint amountInLeft = amountIn;
 
         (uint price, uint amount) = nextBook(orderDir, 0); // 订单方向与交易方向相反
@@ -630,7 +628,7 @@ contract OrderBook is OrderBookBase {
             {
                 //消耗掉一个价格的挂单并返回实际需要的amountIn数量
                 (uint amountInForTake, uint amountOutWithFee, address[] memory _accounts, uint[] memory _amounts) =
-                    getAmountAndTakePrice(to, orderDir, amountInLeft, price, priceDecimal, amount);
+                    getAmountAndTakePrice(to, tradeDir, amountInLeft, price, priceDecimal, amount);
                 amounts.extendUint(_amounts);
                 accounts.extendAddress(_accounts);
                 if (amountInLeft > amountInForTake) {

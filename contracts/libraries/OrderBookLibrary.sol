@@ -136,9 +136,9 @@ library OrderBookLibrary {
 
     //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
     //手续费应该包含在amountOutWithFee中
-    function getAmountOutForTakePrice(uint direction, uint amountInOffer, uint price, uint decimal, uint orderAmount)
+    function getAmountOutForTakePrice(uint tradeDir, uint amountInOffer, uint price, uint decimal, uint orderAmount)
     internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
+        if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
             uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
             if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
@@ -154,7 +154,7 @@ library OrderBookLibrary {
                 fee = amountOutWithFee.sub(amountOut);
             }
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
+        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price
             uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
             if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
@@ -173,9 +173,9 @@ library OrderBookLibrary {
     }
 
     //期望获得amountOutExpect，需要投入多少amountIn
-    function getAmountInForTakePrice(uint direction, uint amountOutExpect, uint price, uint decimal, uint orderAmount)
+    function getAmountInForTakePrice(uint tradeDir, uint amountOutExpect, uint price, uint decimal, uint orderAmount)
     internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
+        if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
             uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
             if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
                 amountOutWithFee = orderAmount;
@@ -190,7 +190,7 @@ library OrderBookLibrary {
                 amountIn = getSellAmountWithPrice(amountOutWithoutFee, price, decimal);
             }
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
+        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
             uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
             if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
                 amountOutWithFee = orderAmount;
