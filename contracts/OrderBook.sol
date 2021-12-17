@@ -73,7 +73,7 @@ contract OrderBook is OrderBookBase {
         _safeTransfer(tokenOut, to, amountOutWithFee);
     }
 
-    function _ammMovePrice(
+    function _orderBookMovePrice(
         uint direction,
         uint _reserveBase,
         uint _reserveQuote,
@@ -206,7 +206,7 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
                 (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-                    _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price,
+                    _orderBookMovePrice(LIMIT_BUY, reserveBase, reserveQuote, price,
                         amountLeft, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
@@ -239,7 +239,7 @@ contract OrderBook is OrderBookBase {
         // swap to target price when there is no limit order less than the target price
         if (price < targetPrice && amountLeft > 0) {
             (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-            _ammMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice,
+            _orderBookMovePrice(LIMIT_BUY, reserveBase, reserveQuote, targetPrice,
                 amountLeft, amountAmmBase, amountAmmQuote);
         }
 
@@ -280,7 +280,7 @@ contract OrderBook is OrderBookBase {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
                 (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-                    _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price,
+                    _orderBookMovePrice(LIMIT_SELL, reserveBase, reserveQuote, price,
                         amountLeft, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
@@ -312,7 +312,7 @@ contract OrderBook is OrderBookBase {
         // swap to target price when there is no limit order less than the target price
         if (price == 0 || price > targetPrice && amountLeft > 0) {
             (amountLeft, reserveBase, reserveQuote, amountAmmBase, amountAmmQuote) =
-                _ammMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice,
+                _orderBookMovePrice(LIMIT_SELL, reserveBase, reserveQuote, targetPrice,
                     amountLeft, amountAmmBase, amountAmmQuote);
         }
 
@@ -332,6 +332,7 @@ contract OrderBook is OrderBookBase {
     }
 
     //limit order for buy base token with quote token
+    //对于市价单，如果订单数量不是最小订单的整数倍，考虑一下是否需要退回
     function createBuyLimitOrder(
         address user,
         uint price,
@@ -498,8 +499,6 @@ contract OrderBook is OrderBookBase {
     external
     view
     returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet){
-        //先吃单再付款，需要保证只有pair可以调用
-        require(msg.sender == pair, 'UniswapV2 OrderBook: invalid sender');
         (reserveInRet, reserveOutRet) = (reserveIn, reserveOut);
         uint tradeDir = tradeDirection(tokenIn);
         uint orderDir = OrderBookLibrary.getOppositeDirection(tradeDir); // 订单方向与交易方向相反
@@ -590,7 +589,8 @@ contract OrderBook is OrderBookBase {
     external
     returns (uint amountAmmOut, address[] memory accounts, uint[] memory amounts) {
         (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-        require(msg.sender == pair, "UniswapV2 OrderBook: FORBIDDEN");
+        //先吃单再付款，需要保证只有pair可以调用
+        require(msg.sender == pair, 'UniswapV2 OrderBook: invalid sender');
 
         //direction for tokenA swap to tokenB
         uint tradeDir = tradeDirection(tokenIn);
