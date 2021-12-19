@@ -411,9 +411,9 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint amountIn) {
         amountIn = OrderBookLibrary.getAmountBaseForPriceUp(amountOut, reserveIn, reserveOut, price,
             decimal);
-    }
+    }*/
 
-    function getAmountForOrderBookMovePrice(
+    function getAmountForMovePrice(
         uint direction,
         uint reserveIn,
         uint reserveOut,
@@ -424,21 +424,12 @@ contract OrderBookBase is OrderQueue, PriceList {
         OrderBookLibrary.getAmountForMovePrice(direction, reserveIn, reserveOut, price, decimal);
     }
 
-    function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
-        require(amountIn > 0, 'OrderBook: INSUFFICIENT_INPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBook: INSUFFICIENT_LIQUIDITY');
-        uint amountInWithFee = amountIn.mul(997);
-        uint numerator = amountInWithFee.mul(reserveOut);
-        uint denominator = reserveIn.mul(1000).add(amountInWithFee);
-        amountOut = numerator / denominator;
+    /*function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
+       amountOut = OrderBookLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
     }
 
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn) {
-        require(amountOut > 0, 'OrderBookLibrary: INSUFFICIENT_OUTPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBookLibrary: INSUFFICIENT_LIQUIDITY');
-        uint numerator = reserveIn.mul(amountOut).mul(1000);
-        uint denominator = reserveOut.sub(amountOut).mul(997);
-        amountIn = (numerator / denominator).add(1);
+        amountIn = OrderBookLibrary.getAmountIn(amountOut, reserveIn, reserveOut);
     }*/
 }

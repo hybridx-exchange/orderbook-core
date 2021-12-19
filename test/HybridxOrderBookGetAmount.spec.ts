@@ -72,7 +72,7 @@ describe('HybridxOrderBook', () => {
     console.log("reserveOutRet:", amountOutRet[3].toString());
   })*/
 
-  it('getOrderBookAmountOut down:start price == buy limit order price', async () => {
+  /*it('getOrderBookAmountOut down:start price == buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -99,9 +99,9 @@ describe('HybridxOrderBook', () => {
     console.log("amountInLeft:", amountOutRet[1].toString());
     console.log("reserveInRet:", amountOutRet[2].toString());
     console.log("reserveOutRet:", amountOutRet[3].toString());
-  })
+  })*/
 
-  /*it('getOrderBookAmountOut down:start price > buy limit order price', async () => {
+  it('getOrderBookAmountOut down:start price > buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -124,10 +124,19 @@ describe('HybridxOrderBook', () => {
 
     let amountOutRet = await orderBook.getOrderBookAmountOut(tokenBase.address, limitAmount, reserves[0], reserves[1])
     console.log("amountOutGet:", amountOutRet[0].toString());
+    //10875417928714590749 == 2925820234006285945 + (expandTo18Decimals(10) - 2074179765993714053) * 0.997 * 1
     console.log("amountInLeft:", amountOutRet[1].toString());
     console.log("reserveInRet:", amountOutRet[2].toString());
     console.log("reserveOutRet:", amountOutRet[3].toString());
-  })*/
+
+    const price = bigNumberify("1000000000000000000")
+    const decimal = 18
+    let results = await orderBook.getAmountForMovePrice(2, reserves[0], reserves[1], price, decimal)
+    console.log("amount base:", results[0].toString())
+    console.log("amount quote:", results[1].toString())
+    console.log("reserve base:", results[2].toString())
+    console.log("reserve quote:", results[3].toString())
+  })
 
   //实际情况不存在start price < buy limit order price的情况
 })
