@@ -44,7 +44,7 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  /*it('getOrderBookAmountOut down:no buy limit order price', async () => {
+  /*it('getAmountOutForMovePrice down:no buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -65,14 +65,14 @@ describe('HybridxOrderBook', () => {
     console.log("reserve base:", reserves[0].toString())
     console.log("reserve quote:", reserves[1].toString())
 
-    let amountOutRet = await orderBook.getOrderBookAmountOut(tokenBase.address, limitAmount, reserves[0], reserves[1])
+    let amountOutRet = await orderBook.getAmountOutForMovePrice(tokenBase.address, limitAmount, reserves[0], reserves[1])
     console.log("amountOutGet:", amountOutRet[0].toString());
     console.log("amountInLeft:", amountOutRet[1].toString());
     console.log("reserveInRet:", amountOutRet[2].toString());
     console.log("reserveOutRet:", amountOutRet[3].toString());
   })*/
 
-  /*it('getOrderBookAmountOut down:start price == buy limit order price', async () => {
+  /*it('getAmountOutForMovePrice down:start price == buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -94,14 +94,14 @@ describe('HybridxOrderBook', () => {
     console.log("reserve quote:", reserves[1].toString())
 
     limitAmount = bigNumberify("7749174582596444639")//expandTo18Decimals(1)
-    let amountOutRet = await orderBook.getOrderBookAmountOut(tokenBase.address, limitAmount, reserves[0], reserves[1])
+    let amountOutRet = await orderBook.getAmountOutForMovePrice(tokenBase.address, limitAmount, reserves[0], reserves[1])
     console.log("amountOutGet:", amountOutRet[0].toString());
     console.log("amountInLeft:", amountOutRet[1].toString());
     console.log("reserveInRet:", amountOutRet[2].toString());
     console.log("reserveOutRet:", amountOutRet[3].toString());
   })*/
 
-  it('getOrderBookAmountOut down:start price > buy limit order price', async () => {
+  it('getAmountOutForMovePrice down:start price > buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -122,7 +122,7 @@ describe('HybridxOrderBook', () => {
     console.log("reserve base:", reserves[0].toString())
     console.log("reserve quote:", reserves[1].toString())
 
-    let amountOutRet = await orderBook.getOrderBookAmountOut(tokenBase.address, limitAmount, reserves[0], reserves[1])
+    let amountOutRet = await orderBook.getAmountOutForMovePrice(tokenBase.address, limitAmount, reserves[0], reserves[1])
     console.log("amountOutGet:", amountOutRet[0].toString());
     //10875417928714590749 == 2925820234006285945 + (expandTo18Decimals(10) - 2074179765993714053) * 0.997 * 1
     console.log("amountInLeft:", amountOutRet[1].toString());
