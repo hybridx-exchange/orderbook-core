@@ -457,7 +457,7 @@ contract OrderBook is OrderBookBase {
     function takeBuyLimitOrder(
         uint amount,
         uint price)
-    external
+    public
     lock
     returns (address[] memory accounts, uint[] memory amounts, uint amountUsed) {
         (accounts, amounts, amountUsed) = _takeLimitOrder(LIMIT_BUY, amount, price);
@@ -495,7 +495,7 @@ contract OrderBook is OrderBookBase {
         minAmount = newMinAmount;
     }
 
-    function getAmountOutForMovePrice(address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
+    function getOrderBookAmountOut(address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
     external
     view
     returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet){
@@ -540,7 +540,7 @@ contract OrderBook is OrderBookBase {
         }
     }
 
-    function getAmountInForMovePrice(address tokenOut, uint amountOutOffer, uint reserveIn, uint reserveOut)
+    function getOrderBookAmountIn(address tokenOut, uint amountOutOffer, uint reserveIn, uint reserveOut)
     external
     view
     returns (uint amountInGet, uint amountOutLeft, uint reserveInRet, uint reserveOutRet) {

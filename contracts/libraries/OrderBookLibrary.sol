@@ -139,22 +139,6 @@ library OrderBookLibrary {
     function getAmountOutForTakePrice(uint tradeDir, uint amountInOffer, uint price, uint decimal, uint orderAmount)
     internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
         if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
-            //amountOut = amountInOffer / price
-            uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
-                amountIn = amountInOffer;
-                fee = amountOut.mul(3).div(1000);
-                amountOutWithFee = amountOut + fee;
-            }
-            else {
-                amountOut = orderAmount.mul(997).div(1000);
-                //amountIn = amountOutWithoutFee * price
-                amountIn = getSellAmountWithPrice(amountOut, price, decimal);
-                amountOutWithFee = orderAmount;
-                fee = amountOutWithFee.sub(amountOut);
-            }
-        }
-        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price
             uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
             if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
@@ -167,6 +151,22 @@ library OrderBookLibrary {
                 //amountIn = amountOutWithoutFee / price
                 amountIn = getBuyAmountWithPrice(amountOut, price, decimal);
                 amountOutWithFee = orderAmount;
+                fee = amountOutWithFee.sub(amountOut);
+            }
+        }
+        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
+            //amountOut = amountInOffer / price --- 订单是买单
+            uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountIn = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
+            }
+            else {
+                amountOut = orderAmount.mul(997).div(1000);
+                //amountIn = amountOutWithoutFee * price
+                amountIn = getSellAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - amountOut;
             }
         }
@@ -175,22 +175,24 @@ library OrderBookLibrary {
     //期望获得amountOutExpect，需要投入多少amountIn
     function getAmountInForTakePrice(uint tradeDir, uint amountOutExpect, uint price, uint decimal, uint orderAmount)
     internal pure returns (uint amountIn, uint amountOutWithFee, uint fee) {
-        if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
+        //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc) for take sell limit order
+        if (tradeDir == LIMIT_BUY) {
             uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
             if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - orderAmountWithoutFee;
-                amountIn = getSellAmountWithPrice(orderAmountWithoutFee, price, decimal);
+                amountIn = getBuyAmountWithPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
                 amountOutWithFee = amountOutExpect;
                 uint amountOutWithoutFee = amountOutExpect.mul(997).div(1000);
                 fee = amountOutWithFee - amountOutWithoutFee;
                 //amountIn = amountOutWithoutFee * price
-                amountIn = getSellAmountWithPrice(amountOutWithoutFee, price, decimal);
+                amountIn = getBuyAmountWithPrice(amountOutWithoutFee, price, decimal);
             }
         }
-        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
+        //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc) for take buy limit order
+        else if (tradeDir == LIMIT_SELL) {
             uint orderAmountWithoutFee = orderAmount.mul(997).div(1000);
             if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
                 amountOutWithFee = orderAmount;
