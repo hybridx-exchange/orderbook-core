@@ -28,8 +28,6 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //名称
     string public constant name = 'Uniswap V2 OrderBook';
-    uint internal constant LIMIT_BUY = 1;
-    uint internal constant LIMIT_SELL = 2;
 
     //order book factory
     address public factory;
@@ -379,6 +377,9 @@ contract OrderBookBase is OrderQueue, PriceList {
         (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
     }
 
+    /*************************************************************************************************
+                                         libraries function for test
+    **************************************************************************************************/
     /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
     external
     pure
