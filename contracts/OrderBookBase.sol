@@ -382,7 +382,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         amount = listAgg(direction, next);
     }
 
-    //用于退回误转进合约的资金
+    //Return funds that were transferred into the contract by mistake
     function safeRefund(address token, address to) external {
         uint balance = IERC20(token).balanceOf(address(this));
         uint refundBalance = balance;
