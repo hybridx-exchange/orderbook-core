@@ -290,6 +290,18 @@ contract OrderBookBase is OrderQueue, PriceList {
         }
     }
 
+    // total amount
+    function totalAmount(uint direction)
+    internal
+    view
+    returns (uint amount)
+    {
+        uint curPrice = nextPrice(direction, 0);
+        while(curPrice != 0){
+            amount += listAgg(direction, curPrice);
+        }
+    }
+
     //订单薄，不关注订单具体信息，只用于查询
     function marketBook(
         uint direction,
@@ -368,6 +380,23 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint next, uint amount) {
         next = nextPrice(direction, cur);
         amount = listAgg(direction, next);
+    }
+
+    //用于退回误转进合约的资金
+    function safeRefund(address token, address to) external {
+        uint balance = IERC20(token).balanceOf(address(this));
+        uint refundBalance = balance;
+        if (token == baseToken) {
+            uint orderBalance = totalAmount(LIMIT_SELL);
+            refundBalance = balance > orderBalance ? balance - orderBalance:0;
+        }
+        else if (token == quoteToken) {
+            uint orderBalance = totalAmount(LIMIT_BUY);
+            refundBalance = balance > orderBalance ? balance - orderBalance:0;
+        }
+
+        require(refundBalance > 0, "Insufficient balance");
+        _safeTransfer(token, to, refundBalance);
     }
 
     function getReserves()
