@@ -3,6 +3,7 @@ pragma solidity =0.5.16;
 import "./interfaces/IERC20.sol";
 import "./libraries/UQ112x112.sol";
 import "./interfaces/IWETH.sol";
+import "./interfaces/IUniswapV2Factory.sol";
 import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
@@ -384,15 +385,17 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //Return funds that were transferred into the contract by mistake
     function safeRefund(address token, address to) external {
+        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+            "Hybridx OrderBook: Forbidden");
         uint balance = IERC20(token).balanceOf(address(this));
         uint refundBalance = balance;
         if (token == baseToken) {
             uint orderBalance = totalAmount(LIMIT_SELL);
-            refundBalance = balance > orderBalance ? balance - orderBalance:0;
+            refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
         else if (token == quoteToken) {
             uint orderBalance = totalAmount(LIMIT_BUY);
-            refundBalance = balance > orderBalance ? balance - orderBalance:0;
+            refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
 
         require(refundBalance > 0, "Insufficient balance");

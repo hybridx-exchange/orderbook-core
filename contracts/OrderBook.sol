@@ -156,7 +156,7 @@ contract OrderBook is OrderBookBase {
             uint amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
                 .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
-            require(_amountLeft >= amountQuoteFix, "UniswapV2 OrderBook: Not Enough Output Amount");
+            require(_amountLeft >= amountQuoteFix, "Hybridx OrderBook: Not Enough Output Amount");
             (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
         }
         else {
@@ -174,7 +174,7 @@ contract OrderBook is OrderBookBase {
             uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(targetPrice)
             .sub(reserveQuote.mul(10 ** priceDecimal).div(curPrice)));
             amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
-            require(_amountLeft >= amountBaseFix, "UniswapV2 OrderBook: Not Enough Input Amount");
+            require(_amountLeft >= amountBaseFix, "Hybridx OrderBook: Not Enough Input Amount");
             (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
         }
         else {
@@ -250,7 +250,7 @@ contract OrderBook is OrderBookBase {
             }
 
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
-            require(amountLeft == 0 || getPrice() >= targetPrice, "UniswapV2 OrderBook: Buy price mismatch");
+            require(amountLeft == 0 || getPrice() >= targetPrice, "Hybridx OrderBook: Buy price mismatch");
 
             quoteBalance = _getQuoteBalance();
         }
@@ -327,7 +327,7 @@ contract OrderBook is OrderBookBase {
             //update base balance
             baseBalance = _getBaseBalance();
 
-            require(amountLeft == 0 || getPrice() <= targetPrice, "UniswapV2 OrderBook: sell to target failed");
+            require(amountLeft == 0 || getPrice() <= targetPrice, "Hybridx OrderBook: sell to target failed");
         }
     }
 
@@ -340,12 +340,12 @@ contract OrderBook is OrderBookBase {
     external
     lock
     returns (uint orderId) {
-        require(price > 0 && price % priceStep == 0, 'UniswapV2 OrderBook: Price Invalid');
+        require(price > 0 && price % priceStep == 0, 'Hybridx OrderBook: Price Invalid');
 
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
-        require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
+        require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).sync();
         uint amountRemain = _movePriceUp(amountOffer, price, to);
@@ -366,12 +366,12 @@ contract OrderBook is OrderBookBase {
     external
     lock
     returns (uint orderId) {
-        require(price > 0 && (price % priceStep) == 0, 'UniswapV2 OrderBook: Price Invalid');
+        require(price > 0 && (price % priceStep) == 0, 'Hybridx OrderBook: Price Invalid');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
-        require(amountOffer >= minAmount, 'UniswapV2 OrderBook: Amount Invalid');
+        require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).sync();
         uint amountRemain = _movePriceDown(amountOffer, price, to);
@@ -418,7 +418,7 @@ contract OrderBook is OrderBookBase {
             uint orderId = peek(direction, price);
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == direction && price == order.price,
-                'UniswapV2 OrderBook: Order Invalid');
+                'Hybridx OrderBook: Order Invalid');
             accountsTo[index] = order.to;
             uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amountTake;
@@ -484,14 +484,14 @@ contract OrderBook is OrderBookBase {
     //更新价格间隔
     function priceStepUpdate(uint newPriceStep) external lock {
         require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-            'UniswapV2 OrderBook: Order Exist');
+            'Hybridx OrderBook: Order Exist');
         priceStep = newPriceStep;
     }
 
     //更新最小数量
     function minAmountUpdate(uint newMinAmount) external lock {
         require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-            'UniswapV2 OrderBook: Order Exist');
+            'Hybridx OrderBook: Order Exist');
         minAmount = newMinAmount;
     }
 
@@ -590,7 +590,7 @@ contract OrderBook is OrderBookBase {
     returns (uint amountAmmOut, address[] memory accounts, uint[] memory amounts) {
         (uint reserveIn, uint reserveOut) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         //先吃单再付款，需要保证只有pair可以调用
-        require(msg.sender == pair, 'UniswapV2 OrderBook: invalid sender');
+        require(msg.sender == pair, 'Hybridx OrderBook: invalid sender');
 
         //direction for tokenA swap to tokenB
         uint tradeDir = tradeDirection(tokenIn);
