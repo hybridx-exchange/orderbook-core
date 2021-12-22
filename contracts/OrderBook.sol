@@ -461,6 +461,9 @@ contract OrderBook is OrderBookBase {
         minAmount = newMinAmount;
     }
 
+    /*******************************************************************************************************
+                                    called by uniswap v2 pair and router
+     *******************************************************************************************************/
     function getAmountOutForMovePrice(address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
     external
     view
