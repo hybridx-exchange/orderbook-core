@@ -67,6 +67,42 @@ library OrderBookLibrary {
         }
     }
 
+    function getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmQuote,
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
+    internal pure returns (uint amountLeft, uint amountAmmQuote) {
+        uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证买单价格小于或等于LP价格
+        //y' = x.p2 - x.p1, x不变，增加y, 使用价格变大
+        if (curPrice < targetPrice) {
+            uint amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
+            .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
+            amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
+            require(_amountLeft >= amountQuoteFix, "Hybridx OrderBook: Not Enough Output Amount");
+            (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
+        }
+        else {
+            (amountLeft, amountAmmQuote) = (_amountLeft, _amountAmmQuote);
+        }
+    }
+
+    function getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmBase,
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
+    internal pure returns (uint amountLeft, uint amountAmmBase) {
+        uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
+        //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
+        //x' = y/p1 - y/p2, y不变，增加x，使价格变小
+        if (curPrice > targetPrice) {
+            uint amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(targetPrice)
+            .sub(reserveQuote.mul(10 ** priceDecimal).div(curPrice)));
+            amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
+            require(_amountLeft >= amountBaseFix, "Hybridx OrderBook: Not Enough Input Amount");
+            (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
+        }
+        else {
+            (amountLeft, amountAmmBase) = (_amountLeft, _amountAmmBase);
+        }
+    }
+
     //sqrt(9*y*y + 3988000*x*y*price)
     function getSection1ForPriceUp(uint reserveIn, uint reserveOut, uint price, uint decimal)
     internal
