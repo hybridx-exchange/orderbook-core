@@ -300,6 +300,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint curPrice = nextPrice(direction, 0);
         while(curPrice != 0){
             amount += listAgg(direction, curPrice);
+            curPrice = nextPrice(direction, curPrice);
         }
     }
 
