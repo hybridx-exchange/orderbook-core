@@ -21,12 +21,12 @@ library OrderBookLibrary {
         }
     }
 
-    //get buy amount with price based on price and offered funds
+    //get buy amount with price based on price and offered amount
     function getBuyAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
         amountGet = amountOffer.mul(10 ** decimal).div(price);
     }
 
-    //get buy amount with price based on price and offered funds
+    //get sell amount with price based on price and offered amount
     function getSellAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
         amountGet = amountOffer.mul(price).div(10 ** decimal);
     }
