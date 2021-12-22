@@ -209,7 +209,7 @@ contract OrderBook is OrderBookBase {
 
         if (amountAmmQuote > 0) {
             if (amountLeft > 0) {
-                (amountLeft, amountAmmQuote) =
+                (amountLeft, amountAmmQuote,) =
                     OrderBookLibrary.getFixAmountForMovePriceUp(amountLeft, amountAmmQuote, reserveBase, reserveQuote,
                         targetPrice, priceDecimal);
             }
@@ -283,7 +283,7 @@ contract OrderBook is OrderBookBase {
 
         if (amountAmmBase > 0) {
             if (amountLeft > 0) {
-                (amountLeft, amountAmmBase) =
+                (amountLeft, amountAmmBase,) =
                     OrderBookLibrary.getFixAmountForMovePriceDown(amountLeft, amountAmmBase, reserveBase, reserveQuote,
                         targetPrice, priceDecimal);
             }
@@ -479,7 +479,7 @@ contract OrderBook is OrderBookBase {
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
             (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
-            OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+                OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountOutUsed = amountInUsed > amountInLeft ?
                 OrderBookLibrary.getAmountOut(amountInLeft, reserveInRet, reserveOutRet) : amountOutUsed;
@@ -524,7 +524,7 @@ contract OrderBook is OrderBookBase {
             uint amountOutUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
             (amountInUsed, amountOutUsed, reserveInRet, reserveOutRet) =
-            OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
+                OrderBookLibrary.getAmountForMovePrice(tradeDir, reserveInRet, reserveOutRet, price, priceDecimal);
             //再计算本次移动价格获得的amountOut
             amountInUsed = amountOutUsed > amountOutLeft ?
                 OrderBookLibrary.getAmountIn(amountOutLeft, reserveInRet, reserveOutRet) : amountInUsed;
