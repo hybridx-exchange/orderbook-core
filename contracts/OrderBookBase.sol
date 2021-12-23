@@ -449,13 +449,14 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     function getAmountForMovePrice(
         uint direction,
+        uint amountInOffer,
         uint reserveIn,
         uint reserveOut,
         uint price,
         uint decimal)
-    external pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForMovePrice(direction, reserveIn, reserveOut, price, decimal);
+    external pure returns (uint amountInLeft, uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
+        (amountInLeft, amountIn, amountOut, reserveInNew, reserveOutNew) =
+        OrderBookLibrary.getAmountForMovePrice(direction, amountInOffer, reserveIn, reserveOut, price, decimal);
     }
 
     /*function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
