@@ -48,8 +48,8 @@ contract OrderBookBase is OrderQueue, PriceList {
     //记价货币
     address public quoteToken;
 
-    uint internal baseBalance;
-    uint internal quoteBalance;
+    uint public baseBalance;
+    uint public quoteBalance;
 
     //未完成总订单，链上不保存已成交的订单(订单id -> Order)
     mapping(uint => Order) public marketOrders;
