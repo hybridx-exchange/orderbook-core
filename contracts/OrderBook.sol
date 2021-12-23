@@ -91,13 +91,9 @@ contract OrderBook is OrderBookBase {
         while (price != 0 && price <= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
-                uint amountBaseUsed;
-                uint amountQuoteUsed;
-                (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-                    OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft, reserveBase, reserveQuote,
-                        price, priceDecimal);
-                amountAmmBase += amountBaseUsed;
-                amountAmmQuote += amountQuoteUsed;
+                (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
+                    OrderBookLibrary.getAmountForMovePriceExt(LIMIT_BUY, amountLeft,
+                        reserveBase, reserveQuote, price, priceDecimal, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -127,13 +123,9 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (amountLeft > 0 && price < targetPrice) {
-            uint amountBaseUsed;
-            uint amountQuoteUsed;
-            (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-                OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft, reserveBase, reserveQuote,
-                    targetPrice, priceDecimal);
-            amountAmmBase += amountBaseUsed;
-            amountAmmQuote += amountQuoteUsed;
+            (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
+                OrderBookLibrary.getAmountForMovePriceExt(LIMIT_BUY, amountLeft,
+                    reserveBase, reserveQuote, targetPrice, priceDecimal, amountAmmBase, amountAmmQuote);
         }
 
         if (amountAmmQuote > 0) {
@@ -173,13 +165,9 @@ contract OrderBook is OrderBookBase {
         while (price != 0 && price >= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
-                uint amountBaseUsed;
-                uint amountQuoteUsed;
-                (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-                    OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft, reserveBase, reserveQuote,
-                        price, priceDecimal);
-                amountAmmBase += amountBaseUsed;
-                amountAmmQuote += amountQuoteUsed;
+                (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
+                    OrderBookLibrary.getAmountForMovePriceExt(LIMIT_SELL, amountLeft,
+                        reserveBase, reserveQuote, price, priceDecimal, amountAmmBase, amountAmmQuote);
                 if (amountLeft == 0) {
                     break;
                 }
@@ -209,13 +197,9 @@ contract OrderBook is OrderBookBase {
 
         // swap to target price when there is no limit order less than the target price
         if (amountLeft > 0 && (price == 0 || price > targetPrice)) {
-            uint amountBaseUsed;
-            uint amountQuoteUsed;
-            (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-                OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft, reserveBase, reserveQuote,
-                    targetPrice, priceDecimal);
-            amountAmmBase += amountBaseUsed;
-            amountAmmQuote += amountQuoteUsed;
+            (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
+                OrderBookLibrary.getAmountForMovePriceExt(LIMIT_SELL, amountLeft,
+                    reserveBase, reserveQuote, targetPrice, priceDecimal, amountAmmBase, amountAmmQuote);
         }
 
         if (amountAmmBase > 0) {

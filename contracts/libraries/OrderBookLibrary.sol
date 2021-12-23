@@ -182,6 +182,27 @@ library OrderBookLibrary {
         }
     }
 
+    function getAmountForMovePriceExt(
+        uint direction,
+        uint _amountIn,
+        uint _reserveBase,
+        uint _reserveQuote,
+        uint price,
+        uint decimal,
+        uint _amountAmmBase,
+        uint _amountAmmQuote)
+    internal
+    pure
+    returns (uint amountIn, uint amountAmmBase, uint amountAmmQuote, uint reserveBase, uint reserveQuote) {
+        uint amountBaseUsed;
+        uint amountQuoteUsed;
+        (amountIn, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
+            getAmountForMovePrice(direction, _amountIn, _reserveBase, _reserveQuote,
+                price, decimal);
+        amountAmmBase = _amountAmmBase.add(amountBaseUsed);
+        amountAmmQuote = _amountAmmQuote.add(amountQuoteUsed);
+    }
+
     //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
     //amountOut = y-(x+amountIn)*price
     function getAmountForMovePriceWithAmountOut(
