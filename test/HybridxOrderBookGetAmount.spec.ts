@@ -101,7 +101,7 @@ describe('HybridxOrderBook', () => {
     console.log("reserveOutRet:", amountOutRet[3].toString());
   })*/
 
-  it('getAmountOutForMovePrice down:start price > buy limit order price', async () => {
+  /*it('getAmountOutForMovePrice down:start price > buy limit order price', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -136,7 +136,7 @@ describe('HybridxOrderBook', () => {
     console.log("amount quote:", results[1].toString())
     console.log("reserve base:", results[2].toString())
     console.log("reserve quote:", results[3].toString())
-  })
+  })*/
 
   //实际情况不存在start price < buy limit order price的情况
 })

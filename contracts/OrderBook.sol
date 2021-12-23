@@ -126,12 +126,12 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (price < targetPrice && amountLeft > 0) {
+        if (amountLeft > 0 && price < targetPrice) {
             uint amountBaseUsed;
             uint amountQuoteUsed;
             (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft, reserveBase, reserveQuote,
-                    price, priceDecimal);
+                    targetPrice, priceDecimal);
             amountAmmBase += amountBaseUsed;
             amountAmmQuote += amountQuoteUsed;
         }
@@ -208,12 +208,12 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (price == 0 || price > targetPrice && amountLeft > 0) {
+        if (amountLeft > 0 && (price == 0 || price > targetPrice)) {
             uint amountBaseUsed;
             uint amountQuoteUsed;
             (amountLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft, reserveBase, reserveQuote,
-                    price, priceDecimal);
+                    targetPrice, priceDecimal);
             amountAmmBase += amountBaseUsed;
             amountAmmQuote += amountQuoteUsed;
         }
