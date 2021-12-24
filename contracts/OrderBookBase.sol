@@ -445,6 +445,32 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint amountIn) {
         amountIn = OrderBookLibrary.getAmountBaseForPriceUp(amountOut, reserveIn, reserveOut, price,
             decimal);
+    }
+
+    function getAmountQuoteForPriceDown(
+        uint amountBase,
+        uint reserveBase,
+        uint reserveQuote,
+        uint price,
+        uint decimal)
+    internal
+    pure
+    returns (uint amountQuote) {
+        amountQuote = reserveQuote.sub((reserveBase.add(amountBase)).mul(price).div(10**decimal));
+        //y' = y-(x+amountIn)*price
+    }
+
+    function getAmountBaseForPriceUp(
+        uint amountQuote,
+        uint reserveBase,
+        uint reserveQuote,
+        uint price,
+        uint decimal)
+    internal
+    pure
+    returns (uint amountBase) {
+        amountBase = reserveBase.sub((reserveQuote.add(amountQuote)).mul(10**decimal).div(price));
+        //x' = x-(y+amountOut)/price
     }*/
 
     function getAmountForMovePrice(

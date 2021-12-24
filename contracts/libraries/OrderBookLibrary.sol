@@ -75,7 +75,7 @@ library OrderBookLibrary {
         //y' = x.p2 - x.p1, x不变，增加y, 使用价格变大
         if (curPrice < targetPrice) {
             amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
-            .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
+                .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
             require(_amountLeft >= amountQuoteFix, "Hybridx OrderBook: Not Enough Output Amount");
             (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
@@ -119,32 +119,6 @@ library OrderBookLibrary {
     returns (uint section1) {
         section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
         (10**decimal).div(price)));
-    }
-
-    function getAmountQuoteForPriceDown(
-        uint amountBase,
-        uint reserveBase,
-        uint reserveQuote,
-        uint price,
-        uint decimal)
-    internal
-    pure
-    returns (uint amountQuote) {
-        amountQuote = reserveQuote.sub((reserveBase.add(amountBase)).mul(price).div(10**decimal));
-        //y' = y-(x+amountIn)*price
-    }
-
-    function getAmountBaseForPriceUp(
-        uint amountQuote,
-        uint reserveBase,
-        uint reserveQuote,
-        uint price,
-        uint decimal)
-    internal
-    pure
-    returns (uint amountBase) {
-        amountBase = reserveBase.sub((reserveQuote.add(amountQuote)).mul(10**decimal).div(price));
-        //x' = x-(y+amountOut)/price
     }
 
     //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
