@@ -146,7 +146,7 @@ library OrderBookLibrary {
             uint section1 = getSection1ForPriceDown(reserveBase, reserveQuote, price, decimal);
             uint section2 = reserveBase.mul(1997);
             amountBase = section1 > section2 ? (section1 - section2).div(1994) : 0;
-            amountBase = amountBase > amountIn ? amountIn : amountIn;
+            amountBase = amountBase > amountIn ? amountIn : amountBase;
             amountQuote = amountBase == 0 ? 0 : getAmountOut(amountBase, reserveBase, reserveQuote);
             (amountInLeft, reserveBaseNew, reserveQuoteNew) =
                 (amountIn - amountBase, reserveBase + amountBase, reserveQuote - amountQuote);

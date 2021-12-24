@@ -87,7 +87,6 @@ contract OrderBook is OrderBookBase {
         amountLeft = amountOffer;
 
         uint price = nextPrice(LIMIT_SELL, 0);
-        uint amount = price != 0 ? listAgg(LIMIT_SELL, price) : 0;
         while (price != 0 && price <= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
@@ -99,6 +98,7 @@ contract OrderBook is OrderBookBase {
                 }
             }
 
+            uint amount = listAgg(LIMIT_SELL, price);
             //take the order of price 'price'.
             (uint amountInForTake,
             uint amountOutWithFee,,
@@ -113,7 +113,6 @@ contract OrderBook is OrderBookBase {
             }
 
             price = nextPrice(LIMIT_SELL, price);
-            amount = price != 0 ? listAgg(LIMIT_SELL, price) : 0;
         }
 
         // send the user for take all limit order's amount.
@@ -161,7 +160,6 @@ contract OrderBook is OrderBookBase {
         uint amountOrderBookOut;
 
         uint price = nextPrice(LIMIT_BUY, 0);
-        uint amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
         while (price != 0 && price >= targetPrice) {
             //skip if there is no liquidity in lp pool
             if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
@@ -173,6 +171,7 @@ contract OrderBook is OrderBookBase {
                 }
             }
 
+            uint amount = listAgg(LIMIT_BUY, price);
             //take the order of price 'price'.
             (uint amountInForTake,
             uint amountOutWithFee,,
@@ -187,7 +186,6 @@ contract OrderBook is OrderBookBase {
             }
 
             price = nextPrice(LIMIT_BUY, price);
-            amount = price != 0 ? listAgg(LIMIT_BUY, price) : 0;
         }
 
         // send the user for take all limit order's amount.
