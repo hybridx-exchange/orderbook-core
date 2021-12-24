@@ -232,7 +232,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
         require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
 
-        IUniswapV2Pair(pair).sync();
+        IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceUp(amountOffer, price, to);
         if (amountRemain != 0) {
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_BUY);
@@ -258,7 +258,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
         require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
 
-        IUniswapV2Pair(pair).sync();
+        IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceDown(amountOffer, price, to);
         if (amountRemain != 0) {
             orderId = _addLimitOrder(user, to, amountOffer, amountRemain, price, LIMIT_SELL);
