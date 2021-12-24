@@ -223,23 +223,7 @@ library OrderBookLibrary {
     function getAmountOutForTakePrice(uint tradeDir, uint amountInOffer, uint price, uint decimal, uint orderAmount)
     internal pure returns (uint amountInUsed, uint amountOutWithFee, uint fee) {
         if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
-            //amountOut = amountInOffer * price
-            uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
-                amountInUsed = amountInOffer;
-                fee = amountOut.mul(3).div(1000);
-                amountOutWithFee = amountOut + fee;
-            }
-            else {
-                amountOut = orderAmount.mul(997).div(1000);
-                //amountIn = amountOutWithoutFee / price
-                amountInUsed = getBuyAmountWithPrice(amountOut, price, decimal);
-                amountOutWithFee = orderAmount;
-                fee = amountOutWithFee.sub(amountOut);
-            }
-        }
-        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
-            //amountOut = amountInOffer / price --- 订单是买单
+            //amountOut = amountInOffer / price
             uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
             if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
                 amountInUsed = amountInOffer;
@@ -250,6 +234,22 @@ library OrderBookLibrary {
                 amountOut = orderAmount.mul(997).div(1000);
                 //amountIn = amountOutWithoutFee * price
                 amountInUsed = getSellAmountWithPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee.sub(amountOut);
+            }
+        }
+        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
+            //amountOut = amountInOffer * price ========= match limit buy order
+            uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //amountOut <= orderAmount * (1-0.3%)
+                amountInUsed = amountInOffer;
+                fee = amountOut.mul(3).div(1000);
+                amountOutWithFee = amountOut + fee;
+            }
+            else {
+                amountOut = orderAmount.mul(997).div(1000);
+                //amountIn = amountOutWithoutFee * price
+                amountInUsed = getBuyAmountWithPrice(amountOut, price, decimal);
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - amountOut;
             }
