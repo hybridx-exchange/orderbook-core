@@ -331,14 +331,14 @@ contract OrderBookBase is OrderQueue, PriceList {
     view
     returns (uint[] memory prices, uint[] memory amounts) {
         uint curPrice = nextPrice(direction, 0);
-        uint32 priceLength;
+        uint priceLength;
         if (direction == LIMIT_BUY) {
             while(curPrice != 0 && curPrice >= price){
                 curPrice = nextPrice(direction, curPrice);
                 priceLength++;
             }
         }
-        else {
+        else if (direction == LIMIT_SELL) {
             while(curPrice != 0 && curPrice <= price){
                 curPrice = nextPrice(direction, curPrice);
                 priceLength++;
@@ -349,7 +349,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             prices = new uint[](priceLength);
             amounts = new uint[](priceLength);
             curPrice = nextPrice(direction, 0);
-            uint32 index;
+            uint index;
             while(index < priceLength) {
                 prices[index] = curPrice;
                 amounts[index] = listAgg(direction, curPrice);
