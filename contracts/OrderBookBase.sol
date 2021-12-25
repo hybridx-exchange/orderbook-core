@@ -334,11 +334,13 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint32 priceLength;
         if (direction == LIMIT_BUY) {
             while(curPrice != 0 && curPrice >= price){
+                curPrice = nextPrice(direction, curPrice);
                 priceLength++;
             }
         }
         else {
             while(curPrice != 0 && curPrice <= price){
+                curPrice = nextPrice(direction, curPrice);
                 priceLength++;
             }
         }
