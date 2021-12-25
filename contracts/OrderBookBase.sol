@@ -329,17 +329,31 @@ contract OrderBookBase is OrderQueue, PriceList {
     function rangeBook(uint direction, uint price)
     external
     view
-    returns (uint[] memory prices, uint[] memory amounts){
-        uint priceLength = priceLength(direction);
-        prices = new uint[](priceLength);
-        amounts = new uint[](priceLength);
+    returns (uint[] memory prices, uint[] memory amounts) {
         uint curPrice = nextPrice(direction, 0);
-        uint32 index = 0;
-        while(curPrice != 0 && curPrice <= price){
-            prices[index] = curPrice;
-            amounts[index] = listAgg(direction, curPrice);
-            curPrice = nextPrice(direction, curPrice);
-            index++;
+        uint32 priceLength;
+        if (direction == LIMIT_BUY) {
+            while(curPrice != 0 && curPrice >= price){
+                priceLength++;
+            }
+        }
+        else {
+            while(curPrice != 0 && curPrice <= price){
+                priceLength++;
+            }
+        }
+
+        if (priceLength > 0) {
+            prices = new uint[](priceLength);
+            amounts = new uint[](priceLength);
+            curPrice = nextPrice(direction, 0);
+            uint32 index;
+            while(index < priceLength) {
+                prices[index] = curPrice;
+                amounts[index] = listAgg(direction, curPrice);
+                curPrice = nextPrice(direction, curPrice);
+                index++;
+            }
         }
     }
 
