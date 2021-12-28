@@ -99,6 +99,7 @@ contract OrderBook is OrderBookBase {
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
                         reserves[0], reserves[1], price, priceDecimal);
                 if (amountAmmLeft == 0) {
+                    amountLeft = 0; //avoid getAmountForMovePrice recalculation
                     break;
                 }
             }
@@ -114,6 +115,7 @@ contract OrderBook is OrderBookBase {
 
             amountLeft = amountLeft.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {  //break if there is no amount left.
+                amountLeft = 0;  //avoid getAmountForMovePrice recalculation
                 break;
             }
 
@@ -126,7 +128,7 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && price < targetPrice) {
+        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && price != targetPrice) {
             (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
                     reserves[0], reserves[1], targetPrice, priceDecimal);
@@ -175,6 +177,7 @@ contract OrderBook is OrderBookBase {
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
                         reserves[0], reserves[1], price, priceDecimal);
                 if (amountAmmLeft == 0) {
+                    amountLeft = 0;  //avoid getAmountForMovePrice recalculation
                     break;
                 }
             }
@@ -190,6 +193,7 @@ contract OrderBook is OrderBookBase {
 
             amountLeft = amountLeft.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) { //break if there is no amount left.
+                amountLeft = 0;  //avoid getAmountForMovePrice recalculation
                 break;
             }
 
@@ -202,7 +206,7 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && (price == 0 || price > targetPrice)) {
+        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && price != targetPrice) {
             (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
                     reserves[0], reserves[1], targetPrice, priceDecimal);

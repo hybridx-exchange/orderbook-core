@@ -136,7 +136,7 @@ describe('HybridxOrderBook', () => {
     const minAmount = await orderBook.minAmount()
     console.log("minAmount:", minAmount.toString())
 
-    let limitAmount = expandTo18Decimals(1)
+    let limitAmount = expandTo18Decimals(10)
     console.log("limitAmount:", limitAmount.toString())
 
     await tokenQuote.transfer(orderBook.address, limitAmount)
@@ -151,7 +151,7 @@ describe('HybridxOrderBook', () => {
 
     console.log("price after1:", (await orderBook.getPrice()).toString())
 
-    limitAmount = expandTo18Decimals(20)
+    limitAmount = expandTo18Decimals(3)
     await tokenBase.transfer(orderBook.address, limitAmount)
     await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
 
@@ -159,8 +159,8 @@ describe('HybridxOrderBook', () => {
     printOrder(order)
     order = await orderBook.marketOrders(2);
     printOrder(order)
-    console.log("market book:", await orderBook.marketBook(2, 1))
-    console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(3)))
+    //console.log("market book:", await orderBook.marketBook(2, 1))
+    //console.log("range book:", await orderBook.rangeBook(2, expandTo18Decimals(3)))
     //console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after2:", (await orderBook.getPrice()).toString())
