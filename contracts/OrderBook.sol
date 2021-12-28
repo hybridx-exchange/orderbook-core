@@ -326,7 +326,20 @@ contract OrderBook is OrderBookBase {
                 break;
             }
 
-            _removeLimitOrder(order);
+            // pop order from queue
+            pop(direction, price);
+
+            delete marketOrders[orderId];
+
+            //delete user order
+            uint userOrderSize = userOrders[order.owner].length;
+            require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+            //overwrite the current element with the last element directly
+            uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+            userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+            marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+            //delete the last element
+            userOrders[order.owner].pop();
 
             emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
                 .amountRemain, order.orderType);

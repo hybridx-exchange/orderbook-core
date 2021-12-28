@@ -249,8 +249,6 @@ contract OrderBookBase is OrderQueue, PriceList {
             //更新userIndex
             marketOrders[_userOrders[order.orderIndex]].orderIndex = order.orderIndex;
         }
-
-        //删除用户订单
         userOrders[order.owner].pop();
 
         //删除队列订单

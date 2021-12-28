@@ -108,7 +108,7 @@ describe('HybridxOrderBook', () => {
     console.log("price after:", (await orderBook.getPrice()).toString())
   })*/
 
-  it('create:sell limit order market2', async () => {
+  /*it('create:sell limit order market2', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -128,9 +128,9 @@ describe('HybridxOrderBook', () => {
     console.log("price after:", (await orderBook.getPrice()).toString())
     console.log("base amount:", (await tokenBase.balanceOf(pair.address)).toString())
     console.log("quote amount:", (await tokenQuote.balanceOf(pair.address)).toString())
-  })
+  })*/
 
-  /*it('create:buy then sell limit order match', async () => {
+  it('create:buy then sell limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -140,7 +140,7 @@ describe('HybridxOrderBook', () => {
     console.log("limitAmount:", limitAmount.toString())
 
     await tokenQuote.transfer(orderBook.address, limitAmount)
-    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+    await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
 
     let order = await orderBook.marketOrders(1);
     printOrder(order)
@@ -166,7 +166,7 @@ describe('HybridxOrderBook', () => {
     console.log("price after2:", (await orderBook.getPrice()).toString())
   })
 
-  it('create:sell then buy limit order match', async () => {
+  /*it('create:sell then buy limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
