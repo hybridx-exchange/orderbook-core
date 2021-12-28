@@ -151,7 +151,7 @@ describe('HybridxOrderBook', () => {
 
     console.log("price after1:", (await orderBook.getPrice()).toString())
 
-    limitAmount = expandTo18Decimals(2)
+    limitAmount = expandTo18Decimals(20)
     await tokenBase.transfer(orderBook.address, limitAmount)
     await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
 

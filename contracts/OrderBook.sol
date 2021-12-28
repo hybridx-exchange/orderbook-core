@@ -92,9 +92,9 @@ contract OrderBook is OrderBookBase {
 
         uint price = nextPrice(LIMIT_SELL, 0);
         while (price != 0 && price <= targetPrice) {
-            uint amountAmmLeft;
+            uint amountAmmLeft = amountLeft;
             //skip if there is no liquidity in lp pool
-            if (reserves[0] > 0 && reserves[1] > 0 && price < targetPrice) {
+            if (reserves[0] > 0 && reserves[1] > 0) {
                 (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
                         reserves[0], reserves[1], price, priceDecimal);
@@ -168,9 +168,9 @@ contract OrderBook is OrderBookBase {
 
         uint price = nextPrice(LIMIT_BUY, 0);
         while (price != 0 && price >= targetPrice) {
-            uint amountAmmLeft;
+            uint amountAmmLeft = amountLeft;
             //skip if there is no liquidity in lp pool
-            if (reserves[0] > 0 && reserves[1] > 0 && price > targetPrice) {
+            if (reserves[0] > 0 && reserves[1] > 0) {
                 (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
                         reserves[0], reserves[1], price, priceDecimal);
