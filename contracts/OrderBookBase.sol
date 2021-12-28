@@ -246,6 +246,8 @@ contract OrderBookBase is OrderQueue, PriceList {
         //直接用最后一个元素覆盖当前元素
         if (order.orderIndex != _userOrders.length - 1) {
             _userOrders[order.orderIndex] = _userOrders[_userOrders.length - 1];
+            //更新userIndex
+            marketOrders[_userOrders[order.orderIndex]].orderIndex = order.orderIndex;
         }
 
         //删除用户订单

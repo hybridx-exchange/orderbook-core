@@ -12,31 +12,33 @@ contract OrderBook is OrderBookBase {
     using Arrays for address[];
     using Arrays for uint[];
 
-    function _getAmountAndTakePrice(
+    function _getAmountAndTake(
         uint direction,
         uint amountInOffer,
         uint price,
-        uint decimal,
         uint orderAmount)
     internal
     returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accountsTo, uint[] memory amountsTo) {
         (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
-            (direction, amountInOffer, price, decimal, orderAmount);
+            (direction, amountInOffer, price, priceDecimal, orderAmount);
         (accountsTo, amountsTo, ) = _takeLimitOrder
             (OrderBookLibrary.getOppositeDirection(direction), amountOutWithFee, price);
     }
 
-    function getAmountAndTakePrice(
+    function _getAmountAndPay(
         address to,
         uint direction,//TRADE DIRECTION
         uint amountInOffer,
         uint price,
-        uint decimal,
-        uint orderAmount)
+        uint orderAmount,
+        address[] memory _accounts,
+        uint[] memory _amounts)
     internal
     returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
         (amountIn, amountOutWithFee, , accounts, amounts) =
-            _getAmountAndTakePrice(direction, amountInOffer, price, decimal, orderAmount);
+            _getAmountAndTake(direction, amountInOffer, price, orderAmount);
+        amounts.extendUint(_amounts);
+        accounts.extendAddress(_accounts);
 
         //当token为weth时，外部调用的时候直接将weth转出
         address tokenOut = direction == LIMIT_BUY ? baseToken : quoteToken;
@@ -80,7 +82,9 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        uint[] memory reserves = new uint[](4);//[reserveBase, reserveQuote, reserveBaseTmp, reserveQuoteTmp]
+        (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        (reserves[2], reserves[3]) = (reserves[0], reserves[1]);
         uint amountAmmBase;
         uint amountAmmQuote;
         uint amountOrderBookOut;
@@ -88,12 +92,13 @@ contract OrderBook is OrderBookBase {
 
         uint price = nextPrice(LIMIT_SELL, 0);
         while (price != 0 && price <= targetPrice) {
+            uint amountAmmLeft;
             //skip if there is no liquidity in lp pool
-            if (reserveBase > 0 && reserveQuote > 0 && price < targetPrice) {
-                (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
-                    OrderBookLibrary.getAmountForMovePriceExt(LIMIT_BUY, amountLeft,
-                        reserveBase, reserveQuote, price, priceDecimal, amountAmmBase, amountAmmQuote);
-                if (amountLeft == 0) {
+            if (reserves[0] > 0 && reserves[1] > 0 && price < targetPrice) {
+                (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
+                    OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
+                        reserves[0], reserves[1], price, priceDecimal);
+                if (amountAmmLeft == 0) {
                     break;
                 }
             }
@@ -103,12 +108,12 @@ contract OrderBook is OrderBookBase {
             (uint amountInForTake,
             uint amountOutWithFee,,
             address[] memory accounts,
-            uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_BUY, amountLeft, price, priceDecimal, amount);
+            uint[] memory amounts) = _getAmountAndTake(LIMIT_BUY, amountAmmLeft, price, amount);
             amountOrderBookOut += amountOutWithFee;
             _batchTransfer(quoteToken, accounts, amounts);
 
-            amountLeft = amountInForTake < amountLeft ? amountLeft - amountInForTake : 0;
-            if (amountLeft == 0) {  //break if there is no amount left.
+            amountLeft = amountLeft.sub(amountInForTake);
+            if (amountInForTake == amountAmmLeft) {  //break if there is no amount left.
                 break;
             }
 
@@ -121,16 +126,16 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (amountLeft > 0 && price < targetPrice) {
-            (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
-                OrderBookLibrary.getAmountForMovePriceExt(LIMIT_BUY, amountLeft,
-                    reserveBase, reserveQuote, targetPrice, priceDecimal, amountAmmBase, amountAmmQuote);
+        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && price < targetPrice) {
+            (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
+                OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
+                    reserves[0], reserves[1], targetPrice, priceDecimal);
         }
 
         if (amountAmmQuote > 0) {
             if (amountLeft > 0) {
                 (amountLeft, amountAmmQuote,) =
-                    OrderBookLibrary.getFixAmountForMovePriceUp(amountLeft, amountAmmQuote, reserveBase, reserveQuote,
+                    OrderBookLibrary.getFixAmountForMovePriceUp(amountLeft, amountAmmQuote, reserves[2], reserves[3],
                         targetPrice, priceDecimal);
             }
 
@@ -153,7 +158,9 @@ contract OrderBook is OrderBookBase {
         address to)
     private
     returns (uint amountLeft) {
-        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        uint[] memory reserves = new uint[](4);//[reserveBase, reserveQuote, reserveBaseTmp, reserveQuoteTmp]
+        (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        (reserves[2], reserves[3]) = (reserves[0], reserves[1]);
         amountLeft = amountOffer;
         uint amountAmmBase;
         uint amountAmmQuote;
@@ -161,12 +168,13 @@ contract OrderBook is OrderBookBase {
 
         uint price = nextPrice(LIMIT_BUY, 0);
         while (price != 0 && price >= targetPrice) {
+            uint amountAmmLeft;
             //skip if there is no liquidity in lp pool
-            if (reserveBase > 0 && reserveQuote > 0 && price > targetPrice) {
-                (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
-                    OrderBookLibrary.getAmountForMovePriceExt(LIMIT_SELL, amountLeft,
-                        reserveBase, reserveQuote, price, priceDecimal, amountAmmBase, amountAmmQuote);
-                if (amountLeft == 0) {
+            if (reserves[0] > 0 && reserves[1] > 0 && price > targetPrice) {
+                (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
+                    OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
+                        reserves[0], reserves[1], price, priceDecimal);
+                if (amountAmmLeft == 0) {
                     break;
                 }
             }
@@ -176,12 +184,12 @@ contract OrderBook is OrderBookBase {
             (uint amountInForTake,
             uint amountOutWithFee,,
             address[] memory accounts,
-            uint[] memory amounts) = _getAmountAndTakePrice(LIMIT_SELL, amountLeft, price, priceDecimal, amount);
+            uint[] memory amounts) = _getAmountAndTake(LIMIT_SELL, amountAmmLeft, price, amount);
             amountOrderBookOut += amountOutWithFee;
             _batchTransfer(baseToken, accounts, amounts);
 
-            amountLeft = amountInForTake < amountLeft ? amountLeft - amountInForTake : 0;
-            if (amountLeft == 0) { //break if there is no amount left.
+            amountLeft = amountLeft.sub(amountInForTake);
+            if (amountInForTake == amountAmmLeft) { //break if there is no amount left.
                 break;
             }
 
@@ -194,16 +202,16 @@ contract OrderBook is OrderBookBase {
         }
 
         // swap to target price when there is no limit order less than the target price
-        if (amountLeft > 0 && (price == 0 || price > targetPrice)) {
-            (amountLeft, amountAmmBase, amountAmmQuote, reserveBase, reserveQuote) =
-                OrderBookLibrary.getAmountForMovePriceExt(LIMIT_SELL, amountLeft,
-                    reserveBase, reserveQuote, targetPrice, priceDecimal, amountAmmBase, amountAmmQuote);
+        if (reserves[0] > 0 && reserves[1] > 0 && amountLeft > 0 && (price == 0 || price > targetPrice)) {
+            (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
+                OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
+                    reserves[0], reserves[1], targetPrice, priceDecimal);
         }
 
         if (amountAmmBase > 0) {
             if (amountLeft > 0) {
                 (amountLeft, amountAmmBase,) =
-                    OrderBookLibrary.getFixAmountForMovePriceDown(amountLeft, amountAmmBase, reserveBase, reserveQuote,
+                    OrderBookLibrary.getFixAmountForMovePriceDown(amountLeft, amountAmmBase, reserves[2], reserves[3],
                         targetPrice, priceDecimal);
             }
 
@@ -318,19 +326,10 @@ contract OrderBook is OrderBookBase {
                 break;
             }
 
-            pop(direction, price);
+            _removeLimitOrder(order);
+
             emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
                 .amountRemain, order.orderType);
-
-            delete marketOrders[orderId];
-
-            //delete user order
-            uint userOrderSize = userOrders[order.owner].length;
-            require(userOrderSize > order.orderIndex);
-            //overwrite the current element with the last element directly
-            userOrders[order.owner][order.orderIndex] = userOrders[order.owner][userOrderSize - 1];
-            //delete the last element
-            userOrders[order.owner].pop();
 
             amountLeft = amountLeft - amountTake;
         }
@@ -383,135 +382,128 @@ contract OrderBook is OrderBookBase {
     /*******************************************************************************************************
                                     called by uniswap v2 pair and router
      *******************************************************************************************************/
-    function getAmountOutForMovePrice(address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
+    function getAmountOutForMovePrice(address tokenIn, uint amountInOffer)
     external
     view
-    returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet) {
+    returns (uint amountOutGet) {
+        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         uint tradeDir = tradeDirection(tokenIn);
-        (uint reserveBase, uint reserveQuote) = tradeDir == LIMIT_BUY ?
-            (reserveOut, reserveIn) : (reserveIn, reserveOut);
         uint orderDir = OrderBookLibrary.getOppositeDirection(tradeDir); // 订单方向与交易方向相反
-        amountInLeft = amountInOffer;
+        uint amountInLeft = amountInOffer;
         amountOutGet = 0;
         (uint price, uint amount) = nextBook(orderDir, 0);
         while (price != 0) {
-            uint amountBaseUsed;
-            uint amountQuoteUsed;
             //先计算pair从当前价格到price消耗amountIn的数量
-            (amountInLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
+            (uint amountAmmLeft,,,,) =
                 OrderBookLibrary.getAmountForMovePrice(tradeDir, amountInLeft, reserveBase, reserveQuote, price,
                     priceDecimal);
-            amountOutGet += tradeDir == LIMIT_BUY ? amountBaseUsed : amountQuoteUsed;
-            if (amountInLeft == 0) {
+            if (amountAmmLeft == 0) {
                 break;
             }
 
             //计算消耗掉一个价格的挂单需要的amountIn数量
             (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountOutForTakePrice(
-                tradeDir, amountInLeft, price, priceDecimal, amount);
+                tradeDir, amountAmmLeft, price, priceDecimal, amount);
             amountOutGet += amountOutWithFee;
             amountInLeft = amountInLeft.sub(amountInForTake);
-            if (amountInLeft == 0) {
+            if (amountInForTake == amountAmmLeft) {
                 break;
-            }
-
-            (price, amount) = nextBook(orderDir, price);
-        }
-
-        (reserveInRet, reserveOutRet) = tradeDir == LIMIT_BUY ?
-            (reserveQuote, reserveBase) : (reserveBase, reserveQuote);
-    }
-
-    function getAmountInForMovePrice(address tokenOut, uint amountOutOffer, uint reserveIn, uint reserveOut)
-    external
-    view
-    returns (uint amountInGet, uint amountOutLeft, uint reserveInRet, uint reserveOutRet) {
-        uint orderDir = tradeDirection(tokenOut); // 订单方向与交易方向相反
-        uint tradeDir = OrderBookLibrary.getOppositeDirection(orderDir);
-        (uint reserveBase, uint reserveQuote) = tradeDir == LIMIT_BUY ?
-            (reserveOut, reserveIn) : (reserveIn, reserveOut);
-        amountOutLeft = amountOutOffer;
-        amountInGet = 0;
-        (uint price, uint amount) = nextBook(orderDir, 0);
-        while (price != 0) {
-            uint amountBaseUsed;
-            uint amountQuoteUsed;
-            //先计算pair从当前价格到price消耗amountIn的数量
-            (amountOutLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-            OrderBookLibrary.getAmountForMovePriceWithAmountOut(tradeDir, amountOutLeft, reserveBase, reserveQuote,
-                price, priceDecimal);
-            amountInGet += tradeDir == LIMIT_BUY ? amountQuoteUsed : amountBaseUsed;
-            if (amountOutLeft == 0) {
-                break;
-            }
-
-            //计算消耗掉一个价格的挂单需要的amountOut数量
-            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
-                amountOutLeft, price, priceDecimal, amount);
-            amountInGet += amountInForTake;
-            amountOutLeft = amountOutLeft.sub(amountOutWithFee);
-            if (amountOutLeft == 0) {
-                break;
-            }
-
-            (price, amount) = nextBook(orderDir, price);
-        }
-
-        (reserveInRet, reserveOutRet) = tradeDir == LIMIT_BUY ?
-            (reserveQuote, reserveBase) : (reserveBase, reserveQuote);
-    }
-
-    function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
-    external
-    returns (uint amountOut, address[] memory accounts, uint[] memory amounts) {
-        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
-        //先吃单再付款，需要保证只有pair可以调用
-        require(msg.sender == pair, 'Hybridx OrderBook: invalid sender');
-
-        //direction for tokenA swap to tokenB
-        uint tradeDir = tradeDirection(tokenIn);
-        uint orderDir = OrderBookLibrary.getOppositeDirection(tradeDir);
-        uint amountInLeft = amountIn;
-
-        (uint price, uint amount) = nextBook(orderDir, 0); // 订单方向与交易方向相反
-        //只处理挂单，reserveIn/reserveOut只用来计算需要消耗的挂单数量和价格范围
-        while (price != 0) {
-            //先计算pair从当前价格到price消耗amountIn的数量
-            {
-                uint amountBaseUsed;
-                uint amountQuoteUsed;
-                (amountInLeft, amountBaseUsed, amountQuoteUsed, reserveBase, reserveQuote) =
-                OrderBookLibrary.getAmountForMovePrice(
-                    tradeDir,
-                    amountInLeft,
-                    reserveBase,
-                    reserveQuote,
-                    price,
-                    priceDecimal);
-                amountOut += tradeDir == LIMIT_BUY ? amountBaseUsed : amountQuoteUsed;
-                if (amountInLeft == 0) {
-                    break;
-                }
-            }
-
-            {
-                //消耗掉一个价格的挂单并返回实际需要的amountIn数量
-                (uint amountInForTake, uint amountOutWithFee, address[] memory _accounts, uint[] memory _amounts) =
-                    getAmountAndTakePrice(to, tradeDir, amountInLeft, price, priceDecimal, amount);
-                amounts.extendUint(_amounts);
-                accounts.extendAddress(_accounts);
-                amountOut += amountOutWithFee;
-                amountInLeft = amountInLeft.sub(amountInForTake);
-                if (amountInLeft == 0) {
-                    break;
-                }
             }
 
             (price, amount) = nextBook(orderDir, price);
         }
 
         if (amountInLeft > 0) {
-            amountOut +=  OrderBookLibrary.getAmountOut(amountInLeft, reserveBase, reserveQuote);
+            amountOutGet += tradeDir == LIMIT_BUY ?
+                OrderBookLibrary.getAmountOut(amountInLeft, reserveQuote, reserveBase) :
+                OrderBookLibrary.getAmountOut(amountInLeft, reserveBase, reserveQuote);
+        }
+    }
+
+    function getAmountInForMovePrice(address tokenOut, uint amountOutOffer)
+    external
+    view
+    returns (uint amountInGet) {
+        (uint reserveBase, uint reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        uint orderDir = tradeDirection(tokenOut); // 订单方向与交易方向相反
+        uint tradeDir = OrderBookLibrary.getOppositeDirection(orderDir);
+        uint amountOutLeft = amountOutOffer;
+        amountInGet = 0;
+        (uint price, uint amount) = nextBook(orderDir, 0);
+        while (price != 0) {
+            //先计算pair从当前价格到price消耗amountIn的数量
+            (uint amountAmmLeft,,,,) =
+            OrderBookLibrary.getAmountForMovePriceWithAmountOut(tradeDir, amountOutLeft, reserveBase, reserveQuote,
+                price, priceDecimal);
+            if (amountAmmLeft == 0) {
+                break;
+            }
+
+            //计算消耗掉一个价格的挂单需要的amountOut数量
+            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
+                amountAmmLeft, price, priceDecimal, amount);
+            amountInGet += amountInForTake;
+            amountOutLeft = amountOutLeft.sub(amountOutWithFee);
+            if (amountOutWithFee == amountAmmLeft) {
+                break;
+            }
+
+            (price, amount) = nextBook(orderDir, price);
+        }
+
+        if (amountOutLeft > 0) {
+            amountInGet += tradeDir == LIMIT_BUY ?
+                OrderBookLibrary.getAmountIn(amountOutLeft, reserveQuote, reserveBase) :
+                OrderBookLibrary.getAmountIn(amountOutLeft, reserveBase, reserveQuote);
+        }
+    }
+
+    function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
+    external
+    returns (uint amountOut, address[] memory accounts, uint[] memory amounts) {
+        //先吃单再付款，需要保证只有pair可以调用
+        require(msg.sender == pair, 'Hybridx OrderBook: invalid sender');
+        uint[] memory reserves = new uint[](2);//[reserveBase, reserveQuote]
+        (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+
+        //direction for tokenA swap to tokenB
+        uint tradeDir = tradeDirection(tokenIn);
+        uint orderDir = OrderBookLibrary.getOppositeDirection(tradeDir);
+
+        (uint price, uint amount) = nextBook(orderDir, 0); // 订单方向与交易方向相反
+        //只处理挂单，reserveIn/reserveOut只用来计算需要消耗的挂单数量和价格范围
+        while (price != 0) {
+            //先计算pair从当前价格到price消耗的数量
+            (uint amountAmmLeft,,,,) =
+            OrderBookLibrary.getAmountForMovePrice(
+                tradeDir,
+                amountIn,
+                reserves[0],
+                reserves[1],
+                price,
+                priceDecimal);
+            if (amountAmmLeft == 0) {
+                break;
+            }
+
+            //消耗掉一个价格的挂单并返回实际需要的amountIn数量
+            uint amountInForTake;
+            uint amountOutWithFee;
+            (amountInForTake, amountOutWithFee, accounts, amounts) =
+                _getAmountAndPay(to, tradeDir, amountAmmLeft, price, amount, accounts, amounts);
+            amountOut += amountOutWithFee;
+            amountIn = amountIn.sub(amountInForTake);
+            if (amountInForTake == amountAmmLeft) {
+                break;
+            }
+
+            (price, amount) = nextBook(orderDir, price);
+        }
+
+        if (amountIn > 0) {
+            amountOut += tradeDir == LIMIT_BUY ?
+                OrderBookLibrary.getAmountOut(amountIn, reserves[1], reserves[0]) :
+                OrderBookLibrary.getAmountOut(amountIn, reserves[0], reserves[1]);
         }
     }
 }

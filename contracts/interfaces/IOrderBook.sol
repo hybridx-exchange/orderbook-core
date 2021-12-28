@@ -75,15 +75,15 @@ interface IOrderBook {
     //更新最小数量
     function minAmountUpdate(uint newMinAmount) external;
 
-    function getAmountOutForMovePrice(address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
+    function getAmountOutForMovePrice(address tokenIn, uint amountInOffer)
     external
     view
-    returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet);
+    returns (uint amountOut);
 
-    function getAmountInForMovePrice(address tokenOut, uint amountOutOffer, uint reserveIn, uint reserveOut)
+    function getAmountInForMovePrice(address tokenOut, uint amountOutOffer)
     external
     view
-    returns (uint amountInGet, uint amountOutLeft, uint reserveInRet, uint reserveOutRet);
+    returns (uint amountIn);
 
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
     external
