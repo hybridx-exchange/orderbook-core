@@ -44,7 +44,7 @@ describe('HybridxOrderBook', () => {
     tokenQuote = fixture.tokenB
   })
 
-  it('priceList test', async () => {
+  /*it('priceList test', async () => {
     let limitAmount = expandTo18Decimals(1)
     let limitPrices = [
       bigNumberify("3100000000000000000"),
@@ -60,14 +60,14 @@ describe('HybridxOrderBook', () => {
       await orderBook.createSellLimitOrder(wallet.address, limitPrices[i], wallet.address, overrides)
     }
 
-    /*let next = await orderBook.nextPrice(bigNumberify(2), bigNumberify(0))
+    let next = await orderBook.nextPrice(bigNumberify(2), bigNumberify(0))
     console.log("next:", next.toString())
     while(!next.eq(bigNumberify(0))){
       next = await orderBook.nextPrice(bigNumberify(2), next)
       console.log("next:", next.toString())
-    }*/
+    }
 
     let result = await orderBook.rangeBook(bigNumberify(2), expandTo18Decimals(4))
     console.log(result)
-  })
+  })*/
 })
