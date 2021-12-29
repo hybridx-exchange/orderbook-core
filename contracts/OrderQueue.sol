@@ -58,6 +58,21 @@ contract OrderQueue {
         }
     }
 
+    // get the element by index (only used for test)
+    function get(
+        uint direction,
+        uint price,
+        uint index)
+    internal
+    view
+    returns (uint data) {
+        uint front = limitOrderQueueFront[direction][price];
+        uint rear = limitOrderQueueRear[direction][price];
+        if (front+index != rear) {
+            data = limitOrderQueueMap[direction][price][front+index];
+        }
+    }
+
     // del - 调用方保证元素一定存在
     function del(
         uint direction,

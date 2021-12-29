@@ -501,6 +501,55 @@ contract OrderBookBase is OrderQueue, PriceList {
         OrderBookLibrary.getAmountForMovePrice(direction, amountInOffer, reserveIn, reserveOut, price, decimal);
     }
 
+    function getAmountForTakePrice(
+        uint direction,
+        uint amountInOffer,
+        uint price,
+        uint orderAmount)
+    external
+    view
+    returns (uint amountIn, uint amountOutWithFee, uint fee) {
+        (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
+            (direction, amountInOffer, price, priceDecimal, orderAmount);
+    }
+
+    function getAmountsForTakePrice(
+        uint direction,
+        uint amount,
+        uint price)
+    external
+    view
+    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
+        uint amountLeft = amount;
+        uint index;
+        uint length = length(direction, price);
+        accountsTo = new address[](length);
+        amountsTo = new uint[](length);
+        uint decimal = priceDecimal;
+        while (index < length && amountLeft > 0) {
+            uint orderId = get(direction, price, index);
+            if (orderId == 0) break;
+            Order memory order = marketOrders[orderId];
+            require(orderId == order.orderId && order.orderType == direction && price == order.price,
+                'Hybridx OrderBook: Order Invalid');
+            accountsTo[index] = order.to;
+            uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
+            order.amountRemain = order.amountRemain - amountTake;
+            amountsTo[index] = direction == LIMIT_SELL ?
+                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(997).div(1000), price, decimal) :
+                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(997).div(1000), price, decimal);
+
+            amountLeft = amountLeft - amountTake;
+            if (order.amountRemain != 0) {
+                break;
+            }
+
+            index++;
+        }
+
+        amountUsed = amount - amountLeft;
+    }
+
     /*function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
        amountOut = OrderBookLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
     }

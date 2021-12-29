@@ -145,8 +145,6 @@ contract OrderBook is OrderBookBase {
 
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
             require(amountLeft == 0 || getPrice() >= targetPrice, "Hybridx OrderBook: Buy price mismatch");
-
-            quoteBalance = _getQuoteBalance();
         }
     }
 
@@ -224,10 +222,6 @@ contract OrderBook is OrderBookBase {
             }
 
             _ammSwapPrice(to, baseToken, quoteToken, amountAmmBase, amountAmmQuote);
-
-            //update base balance
-            baseBalance = _getBaseBalance();
-
             require(amountLeft == 0 || getPrice() <= targetPrice, "Hybridx OrderBook: sell to target failed");
         }
     }
@@ -255,8 +249,8 @@ contract OrderBook is OrderBookBase {
             emit OrderCreated(user, to, amountOffer, amountRemain, price, LIMIT_BUY);
         }
 
-        //update quote balance
-        quoteBalance = amountRemain != amountOffer ? _getQuoteBalance() : balance;
+        //update balance
+        _updateBalance();
     }
 
     //limit order for sell base token to quote token
@@ -281,8 +275,8 @@ contract OrderBook is OrderBookBase {
             emit OrderCreated(user, to, amountOffer, amountRemain, price, LIMIT_SELL);
         }
 
-        //update base balance
-        baseBalance = amountRemain != amountOffer ? _getBaseBalance() : balance;
+        //update balance
+        _updateBalance();
     }
 
     function cancelLimitOrder(uint orderId) external lock {
@@ -317,16 +311,18 @@ contract OrderBook is OrderBookBase {
         uint decimal = priceDecimal;
         while (index < length && amountLeft > 0) {
             uint orderId = peek(direction, price);
+            if (orderId == 0) break;
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == direction && price == order.price,
                 'Hybridx OrderBook: Order Invalid');
             accountsTo[index] = order.to;
             uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amountTake;
-            amountsTo[index] = direction == LIMIT_BUY ?
+            amountsTo[index] = direction == LIMIT_SELL ?
                 OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(997).div(1000), price, decimal) :
                 OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(997).div(1000), price, decimal);
 
+            amountLeft = amountLeft - amountTake;
             if (order.amountRemain != 0) {
                 marketOrders[orderId].amountRemain = order.amountRemain;
                 emit OrderUpdate(order.owner, order.to, order.price, order.amountOffer, order
@@ -351,8 +347,7 @@ contract OrderBook is OrderBookBase {
 
             emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
                 .amountRemain, order.orderType);
-
-            amountLeft = amountLeft - amountTake;
+            index++;
         }
 
         amountUsed = amount - amountLeft;
