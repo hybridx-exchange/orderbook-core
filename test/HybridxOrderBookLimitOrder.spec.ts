@@ -130,7 +130,7 @@ describe('HybridxOrderBook', () => {
     console.log("quote amount:", (await tokenQuote.balanceOf(pair.address)).toString())
   })*/
 
-  it('create:buy then sell limit order match', async () => {
+  /*it('create:buy then sell limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
     console.log("price before:", (await orderBook.getPrice()).toString())
     const minAmount = await orderBook.minAmount()
@@ -164,7 +164,7 @@ describe('HybridxOrderBook', () => {
     //console.log("user orders:", await orderBook.getUserOrders(wallet.address))
 
     console.log("price after2:", (await orderBook.getPrice()).toString())
-  })
+  })*/
 
   /*it('create:sell then buy limit order match', async () => {
     await factory.setOrderBookFactory(orderBookFactory.address);
