@@ -536,8 +536,8 @@ contract OrderBookBase is OrderQueue, PriceList {
             uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amountTake;
             amountsTo[index] = direction == LIMIT_SELL ?
-                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(997).div(1000), price, decimal) :
-                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(997).div(1000), price, decimal);
+                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal) :
+                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal);
 
             amountLeft = amountLeft - amountTake;
             if (order.amountRemain != 0) {

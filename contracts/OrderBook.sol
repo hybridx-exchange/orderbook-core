@@ -12,6 +12,62 @@ contract OrderBook is OrderBookBase {
     using Arrays for address[];
     using Arrays for uint[];
 
+    function _takeLimitOrder(
+        uint direction,
+        uint amountOutWithFee,
+        uint price)
+    internal
+    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
+        uint amountLeft = amountOutWithFee;
+        uint index;
+        uint length = length(direction, price);
+        accountsTo = new address[](length);
+        amountsTo = new uint[](length);
+        uint decimal = priceDecimal;
+        while (index < length && amountLeft > 0) {
+            uint orderId = peek(direction, price);
+            if (orderId == 0) break;
+            Order memory order = marketOrders[orderId];
+            require(orderId == order.orderId && order.orderType == direction && price == order.price,
+                'Hybridx OrderBook: Order Invalid');
+            accountsTo[index] = order.to;
+            uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
+            order.amountRemain = order.amountRemain - amountTake;
+            amountsTo[index] = direction == LIMIT_SELL ?
+                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal) :
+                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal);
+
+            amountLeft = amountLeft - amountTake;
+            if (order.amountRemain != 0) {
+                marketOrders[orderId].amountRemain = order.amountRemain;
+                emit OrderUpdate(order.owner, order.to, order.price, order.amountOffer, order
+                    .amountRemain, order.orderType);
+                break;
+            }
+
+            // pop order from queue
+            pop(direction, price);
+
+            delete marketOrders[orderId];
+
+            //delete user order
+            uint userOrderSize = userOrders[order.owner].length;
+            require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+            //overwrite the current element with the last element directly
+            uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+            userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+            marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+            //delete the last element
+            userOrders[order.owner].pop();
+
+            emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
+                .amountRemain, order.orderType);
+            index++;
+        }
+
+        amountUsed = amountOutWithFee - amountLeft;
+    }
+
     function _getAmountAndTake(
         uint direction,
         uint amountInOffer,
@@ -295,62 +351,6 @@ contract OrderBook is OrderBookBase {
         else baseBalance = balance;
 
         emit OrderCanceled(o.owner, o.to, o.amountOffer, o.amountRemain, o.price, o.orderType);
-    }
-
-    function _takeLimitOrder(
-        uint direction,
-        uint amount,
-        uint price)
-    internal
-    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
-        uint amountLeft = amount;
-        uint index;
-        uint length = length(direction, price);
-        accountsTo = new address[](length);
-        amountsTo = new uint[](length);
-        uint decimal = priceDecimal;
-        while (index < length && amountLeft > 0) {
-            uint orderId = peek(direction, price);
-            if (orderId == 0) break;
-            Order memory order = marketOrders[orderId];
-            require(orderId == order.orderId && order.orderType == direction && price == order.price,
-                'Hybridx OrderBook: Order Invalid');
-            accountsTo[index] = order.to;
-            uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
-            order.amountRemain = order.amountRemain - amountTake;
-            amountsTo[index] = direction == LIMIT_SELL ?
-                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(997).div(1000), price, decimal) :
-                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(997).div(1000), price, decimal);
-
-            amountLeft = amountLeft - amountTake;
-            if (order.amountRemain != 0) {
-                marketOrders[orderId].amountRemain = order.amountRemain;
-                emit OrderUpdate(order.owner, order.to, order.price, order.amountOffer, order
-                    .amountRemain, order.orderType);
-                break;
-            }
-
-            // pop order from queue
-            pop(direction, price);
-
-            delete marketOrders[orderId];
-
-            //delete user order
-            uint userOrderSize = userOrders[order.owner].length;
-            require(userOrderSize > order.orderIndex, 'invalid orderIndex');
-            //overwrite the current element with the last element directly
-            uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
-            userOrders[order.owner][order.orderIndex] = lastUsedOrder;
-            marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
-            //delete the last element
-            userOrders[order.owner].pop();
-
-            emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
-                .amountRemain, order.orderType);
-            index++;
-        }
-
-        amountUsed = amount - amountLeft;
     }
 
     //take buy limit order
