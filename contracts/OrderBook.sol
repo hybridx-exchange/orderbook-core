@@ -18,7 +18,7 @@ contract OrderBook is OrderBookBase {
         uint amountOutWithFee,
         uint price)
     internal
-    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
+    returns (address[] memory accountsTo, uint[] memory amountsTo) {
         uint amountLeft = amountOutWithFee;
         uint index;
         uint length = length(direction, price);
@@ -44,20 +44,7 @@ contract OrderBook is OrderBookBase {
                 break;
             }
 
-            // pop order from queue
-            pop(direction, price);
-
-            delete marketOrders[orderId];
-
-            //delete user order
-            uint userOrderSize = userOrders[order.owner].length;
-            require(userOrderSize > order.orderIndex, 'invalid orderIndex');
-            //overwrite the current element with the last element directly
-            uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
-            userOrders[order.owner][order.orderIndex] = lastUsedOrder;
-            marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
-            //delete the last element
-            userOrders[order.owner].pop();
+            _removeFrontLimitOrderOfQueue(order);
 
             emit OrderClosed(order.owner, order.to, order.price, order.amountOffer, order
                 .amountRemain, order.orderType);
@@ -72,8 +59,6 @@ contract OrderBook is OrderBookBase {
                 amountsTo[i] = amountInOffer.mul(amountsOut[i]).div(amountOutWithFee);
             }
         }
-
-        amountUsed = amountOutWithFee - amountLeft;
     }
 
     function _getAmountAndTake(
@@ -85,7 +70,7 @@ contract OrderBook is OrderBookBase {
     returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accountsTo, uint[] memory amountsTo) {
         (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
             (direction, amountInOffer, price, priceDecimal, orderAmount);
-        (accountsTo, amountsTo, ) = _takeLimitOrder
+        (accountsTo, amountsTo) = _takeLimitOrder
             (OrderBookLibrary.getOppositeDirection(direction), amountIn, amountOutWithFee, price);
     }
 

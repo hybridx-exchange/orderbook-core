@@ -236,23 +236,46 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     //删除order对象
+    function _removeFrontLimitOrderOfQueue(Order memory order) internal {
+        // pop order from queue of same price
+        pop(order.orderType, order.price);
+        // delete order from market orders
+        delete marketOrders[order.orderId];
+
+        // delete user order
+        uint userOrderSize = userOrders[order.owner].length;
+        require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+        //overwrite the current element with the last element directly
+        uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+        userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+        //update moved order's index
+        marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+        // delete the last element of user order list
+        userOrders[order.owner].pop();
+
+        //delete price
+        if (length(order.orderType, order.price) == 0){
+            delPrice(order.orderType, order.price);
+        }
+    }
+
+    //删除order对象
     function _removeLimitOrder(Order memory order) internal {
+        //删除队列订单
+        del(order.orderType, order.price, order.orderId);
         //删除全局订单
         delete marketOrders[order.orderId];
 
-        //删除用户订单
-        uint[] memory _userOrders = userOrders[order.owner];
-        require(_userOrders.length > order.orderIndex, 'invalid orderIndex');
-        //直接用最后一个元素覆盖当前元素
-        if (order.orderIndex != _userOrders.length - 1) {
-            _userOrders[order.orderIndex] = _userOrders[_userOrders.length - 1];
-            //更新userIndex
-            marketOrders[_userOrders[order.orderIndex]].orderIndex = order.orderIndex;
-        }
+        // delete user order
+        uint userOrderSize = userOrders[order.owner].length;
+        require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+        //overwrite the current element with the last element directly
+        uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+        userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+        //update moved order's index
+        marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+        // delete the last element of user order list
         userOrders[order.owner].pop();
-
-        //删除队列订单
-        del(order.orderType, order.price, order.orderId);
 
         //删除价格
         if (length(order.orderType, order.price) == 0){
