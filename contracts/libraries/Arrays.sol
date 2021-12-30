@@ -24,5 +24,18 @@ library Arrays {
             z[x.length + i] = y[i];
         }
     }
+
+    function subAddress(address[] memory x, uint newLen) internal pure returns (address[] memory z) {
+        require(newLen <= x.length);
+        if (newLen == x.length) {
+            z = x;
+        }
+        else {
+            z = new address[](newLen);
+            for (uint i=0; i<newLen; i++) {
+                z[i] = x[i];
+            }
+        }
+    }
 }
 

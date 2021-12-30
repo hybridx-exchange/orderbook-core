@@ -14,6 +14,7 @@ contract OrderBook is OrderBookBase {
 
     function _takeLimitOrder(
         uint direction,
+        uint amountInOffer,
         uint amountOutWithFee,
         uint price)
     internal
@@ -21,27 +22,25 @@ contract OrderBook is OrderBookBase {
         uint amountLeft = amountOutWithFee;
         uint index;
         uint length = length(direction, price);
-        accountsTo = new address[](length);
-        amountsTo = new uint[](length);
-        uint decimal = priceDecimal;
+        address[] memory accountsAll = new address[](length);
+        uint[] memory amountsOut = new uint[](length);
         while (index < length && amountLeft > 0) {
             uint orderId = peek(direction, price);
             if (orderId == 0) break;
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == direction && price == order.price,
                 'Hybridx OrderBook: Order Invalid');
-            accountsTo[index] = order.to;
+            accountsAll[index] = order.to;
             uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amountTake;
-            amountsTo[index] = direction == LIMIT_SELL ?
-                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal) :
-                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal);
+            amountsOut[index] = amountTake;
 
             amountLeft = amountLeft - amountTake;
             if (order.amountRemain != 0) {
                 marketOrders[orderId].amountRemain = order.amountRemain;
                 emit OrderUpdate(order.owner, order.to, order.price, order.amountOffer, order
                     .amountRemain, order.orderType);
+                index++;
                 break;
             }
 
@@ -65,6 +64,15 @@ contract OrderBook is OrderBookBase {
             index++;
         }
 
+        if (index > 0) {
+            accountsTo = Arrays.subAddress(accountsAll, index);
+            amountsTo = new uint[](index);
+            require(amountsTo.length == amountsOut.length);
+            for (uint i; i<index; i++) {
+                amountsTo[i] = amountInOffer.mul(amountsOut[i]).div(amountOutWithFee);
+            }
+        }
+
         amountUsed = amountOutWithFee - amountLeft;
     }
 
@@ -78,7 +86,7 @@ contract OrderBook is OrderBookBase {
         (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
             (direction, amountInOffer, price, priceDecimal, orderAmount);
         (accountsTo, amountsTo, ) = _takeLimitOrder
-            (OrderBookLibrary.getOppositeDirection(direction), amountOutWithFee, price);
+            (OrderBookLibrary.getOppositeDirection(direction), amountIn, amountOutWithFee, price);
     }
 
     function _getAmountAndPay(
@@ -353,34 +361,6 @@ contract OrderBook is OrderBookBase {
         emit OrderCanceled(o.owner, o.to, o.amountOffer, o.amountRemain, o.price, o.orderType);
     }
 
-    //take buy limit order
-    function takeBuyLimitOrder(
-        uint amount,
-        uint price)
-    public
-    lock
-    returns (address[] memory accounts, uint[] memory amounts, uint amountUsed) {
-        (accounts, amounts, amountUsed) = _takeLimitOrder(LIMIT_BUY, amount, price);
-        //向pair合约转账amountUsed的baseToken
-        _safeTransfer(baseToken, pair, amountUsed);
-        //update base balance
-        baseBalance = _getBaseBalance();
-    }
-
-    //take sell limit order
-    function takeSellLimitOrder(
-        uint amount,
-        uint price)
-    public
-    lock
-    returns (address[] memory accounts, uint[] memory amounts, uint amountUsed){
-        (accounts, amounts, amountUsed) = _takeLimitOrder(LIMIT_SELL, amount, price);
-        //向pair合约转账amountUsed
-        _safeTransfer(quoteToken, pair, amountUsed);
-        //update quote balance
-        quoteBalance = _getQuoteBalance();
-    }
-
     //更新价格间隔
     function priceStepUpdate(uint newPriceStep) external lock {
         require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
@@ -476,6 +456,7 @@ contract OrderBook is OrderBookBase {
 
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
     external
+    lock
     returns (uint amountOut, address[] memory accounts, uint[] memory amounts) {
         //先吃单再付款，需要保证只有pair可以调用
         require(msg.sender == pair, 'Hybridx OrderBook: invalid sender');
