@@ -346,14 +346,14 @@ contract OrderBook is OrderBookBase {
         emit OrderCanceled(o.owner, o.to, o.amountOffer, o.amountRemain, o.price, o.orderType);
     }
 
-    //更新价格间隔
+    //更新价格间隔，需要考虑抢先交易的问题
     function priceStepUpdate(uint newPriceStep) external lock {
         require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
             'Hybridx OrderBook: Order Exist');
         priceStep = newPriceStep;
     }
 
-    //更新最小数量
+    //更新最小数量，需要考虑抢先交易的问题
     function minAmountUpdate(uint newMinAmount) external lock {
         require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
             'Hybridx OrderBook: Order Exist');
