@@ -315,7 +315,8 @@ contract OrderBook is OrderBookBase {
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
-        require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
+        uint minQuoteAmount = OrderBookLibrary.getSellAmountWithPrice(minAmount, price, priceDecimal);
+        require(amountOffer >= minQuoteAmount, 'Hybridx OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceDown(amountOffer, price, to);
