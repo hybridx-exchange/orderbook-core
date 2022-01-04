@@ -3,7 +3,6 @@ pragma solidity =0.5.16;
 import "./interfaces/IERC20.sol";
 import "./libraries/UQ112x112.sol";
 import "./interfaces/IWETH.sol";
-import "./interfaces/IUniswapV2Factory.sol";
 import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
@@ -435,7 +434,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //更新价格间隔，需要考虑抢先交易的问题
     function priceStepUpdate(uint newPriceStep) external lock {
-        if (msg.sender != IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin()){
+        if (msg.sender != OrderBookLibrary.getAdmin(factory)){
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Hybridx OrderBook: Order Exist');
         }
@@ -444,7 +443,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //更新最小数量
     function minAmountUpdate(uint newMinAmount) external lock {
-        if (msg.sender != IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin()){
+        if (msg.sender != OrderBookLibrary.getAdmin(factory)){
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Hybridx OrderBook: Order Exist');
         }
@@ -453,7 +452,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //更新协议费率，开放修改需要考虑抢先交易问题，暂时由社区账号管理
     function protocolFeeRateUpdate(uint newProtocolFeeRate) external lock {
-        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+        require(msg.sender == OrderBookLibrary.getAdmin(factory),
             "Hybridx OrderBook: Forbidden");
         require(newProtocolFeeRate <= 30); //max fee is 0.3%, default is 0.1%
         protocolFeeRate = newProtocolFeeRate;
@@ -461,7 +460,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //更新gas补贴费率
     function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external lock {
-        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+        require(msg.sender == OrderBookLibrary.getAdmin(factory),
             "Hybridx OrderBook: Forbidden");
         require(newSubsidyFeeRate <= 100); //max is 100% of protocolFeeRate
         subsidyFeeRate = newSubsidyFeeRate;
@@ -469,7 +468,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //Return funds that were transferred into the contract by mistake
     function safeRefund(address token, address to) external lock {
-        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+        require(msg.sender == OrderBookLibrary.getAdmin(factory),
             "Hybridx OrderBook: Forbidden");
         uint balance = IERC20(token).balanceOf(address(this));
         uint refundBalance = balance;

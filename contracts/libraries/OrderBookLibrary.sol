@@ -2,6 +2,7 @@ pragma solidity >=0.5.0;
 
 import "../interfaces/IOrderBook.sol";
 import "../interfaces/IOrderBookFactory.sol";
+import "../interfaces/IUniswapV2Factory.sol";
 import "../interfaces/IUniswapV2Pair.sol";
 import "./Math.sol";
 import "./SafeMath.sol";
@@ -19,6 +20,10 @@ library OrderBookLibrary {
         else if (LIMIT_SELL == direction) {
             opposite = LIMIT_BUY;
         }
+    }
+
+    function getAdmin(address factory) internal view returns (address admin){
+        admin = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin();
     }
 
     //get buy amount with price based on price and offered amount
