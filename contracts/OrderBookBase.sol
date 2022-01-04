@@ -48,7 +48,9 @@ contract OrderBookBase is OrderQueue, PriceList {
     //记价货币
     address public quoteToken;
 
+    //基础货币余额
     uint public baseBalance;
+    //计价货币余额
     uint public quoteBalance;
 
     //未完成总订单，链上不保存已成交的订单(订单id -> Order)
