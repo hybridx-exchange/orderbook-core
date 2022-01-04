@@ -423,8 +423,22 @@ contract OrderBookBase is OrderQueue, PriceList {
         amount = listAgg(direction, next);
     }
 
+    //更新价格间隔，需要考虑抢先交易的问题
+    function priceStepUpdate(uint newPriceStep) external lock {
+        require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+            'Hybridx OrderBook: Order Exist');
+        priceStep = newPriceStep;
+    }
+
+    //更新最小数量，需要考虑抢先交易的问题
+    function minAmountUpdate(uint newMinAmount) external lock {
+        require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+            'Hybridx OrderBook: Order Exist');
+        minAmount = newMinAmount;
+    }
+
     //Return funds that were transferred into the contract by mistake
-    function safeRefund(address token, address to) external {
+    function safeRefund(address token, address to) external lock {
         require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
             "Hybridx OrderBook: Forbidden");
         uint balance = IERC20(token).balanceOf(address(this));
