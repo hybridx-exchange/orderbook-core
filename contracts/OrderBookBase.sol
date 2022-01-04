@@ -123,7 +123,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         priceStep = _priceStep;
         priceDecimal = IERC20(_quoteToken).decimals();
         minAmount = _minAmount;
-        protocolFeeRate = 10; // 10/10000
+        protocolFeeRate = 30; // 30/10000
         subsidyFeeRate = 50; // protocolFeeRate * 50%
     }
 
