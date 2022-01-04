@@ -67,8 +67,9 @@ contract OrderBook is OrderBookBase {
         uint price,
         uint orderAmount)
     internal
-    returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accountsTo, uint[] memory amountsTo) {
-        (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
+    returns (uint amountIn, uint amountOutWithFee, uint communityFee,
+        address[] memory accountsTo, uint[] memory amountsTo) {
+        (amountIn, amountOutWithFee, communityFee) = OrderBookLibrary.getAmountOutForTakePrice
             (direction, amountInOffer, price, priceDecimal, protocolFeeRate, subsidyFeeRate, orderAmount);
         (accountsTo, amountsTo) = _takeLimitOrder
             (OrderBookLibrary.getOppositeDirection(direction), amountIn, amountOutWithFee, price);
@@ -83,15 +84,18 @@ contract OrderBook is OrderBookBase {
         address[] memory _accounts,
         uint[] memory _amounts)
     internal
-    returns (uint amountIn, uint amountOutWithFee, address[] memory accounts, uint[] memory amounts) {
-        (amountIn, amountOutWithFee, , accounts, amounts) =
+    returns (uint amountIn, uint amountOutWithSubsidyFee, address[] memory accounts, uint[] memory amounts) {
+        uint amountOutWithFee;
+        uint communityFee;
+        (amountIn, amountOutWithFee, communityFee, accounts, amounts) =
             _getAmountAndTake(direction, amountInOffer, price, orderAmount);
         amounts.extendUint(_amounts);
         accounts.extendAddress(_accounts);
+        amountOutWithSubsidyFee = amountOutWithFee.sub(communityFee);
 
         //当token为weth时，外部调用的时候直接将weth转出
         address tokenOut = direction == LIMIT_BUY ? baseToken : quoteToken;
-        _safeTransfer(tokenOut, to, amountOutWithFee);
+        _safeTransfer(tokenOut, to, amountOutWithFee.sub(amountOutWithSubsidyFee));
     }
 
     function _ammSwapPrice(
@@ -157,10 +161,11 @@ contract OrderBook is OrderBookBase {
             uint amount = listAgg(LIMIT_SELL, price);
             //take the order of price 'price'.
             (uint amountInForTake,
-            uint amountOutWithFee,,
+            uint amountOutWithFee,
+            uint communityFee,
             address[] memory accounts,
             uint[] memory amounts) = _getAmountAndTake(LIMIT_BUY, amountAmmLeft, price, amount);
-            amountOrderBookOut += amountOutWithFee;
+            amountOrderBookOut += amountOutWithFee.sub(communityFee);
             _batchTransfer(quoteToken, accounts, amounts);
 
             if (amountInForTake == amountAmmLeft) {  //break if there is no amount left.
@@ -235,10 +240,11 @@ contract OrderBook is OrderBookBase {
             uint amount = listAgg(LIMIT_BUY, price);
             //take the order of price 'price'.
             (uint amountInForTake,
-            uint amountOutWithFee,,
+            uint amountOutWithFee,
+            uint communityFee,
             address[] memory accounts,
             uint[] memory amounts) = _getAmountAndTake(LIMIT_SELL, amountAmmLeft, price, amount);
-            amountOrderBookOut += amountOutWithFee;
+            amountOrderBookOut += amountOutWithFee.sub(communityFee);
             _batchTransfer(baseToken, accounts, amounts);
 
             if (amountInForTake == amountAmmLeft) { //break if there is no amount left.
@@ -370,9 +376,9 @@ contract OrderBook is OrderBookBase {
             }
 
             //计算消耗掉一个价格的挂单需要的amountIn数量
-            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountOutForTakePrice(
+            (uint amountInForTake, uint amountOutWithFee, uint communityFee) = OrderBookLibrary.getAmountOutForTakePrice(
                 tradeDir, amountAmmLeft, price, priceDecimal, protocolFeeRate, subsidyFeeRate, amount);
-            amountOutGet += amountOutWithFee;
+            amountOutGet += amountOutWithFee.sub(communityFee);
             amountInLeft = amountInLeft.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
                 break;
@@ -457,10 +463,10 @@ contract OrderBook is OrderBookBase {
 
             //消耗掉一个价格的挂单并返回实际需要的amountIn数量
             uint amountInForTake;
-            uint amountOutWithFee;
-            (amountInForTake, amountOutWithFee, accounts, amounts) =
+            uint amountOutWithSubsidyFee;
+            (amountInForTake, amountOutWithSubsidyFee, accounts, amounts) =
                 _getAmountAndPay(to, tradeDir, amountAmmLeft, price, amount, accounts, amounts);
-            amountOut += amountOutWithFee;
+            amountOut += amountOutWithSubsidyFee;
             amountIn = amountIn.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
                 break;
