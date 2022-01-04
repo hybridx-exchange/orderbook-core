@@ -69,7 +69,7 @@ contract OrderBook is OrderBookBase {
     internal
     returns (uint amountIn, uint amountOutWithFee, uint fee, address[] memory accountsTo, uint[] memory amountsTo) {
         (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
-            (direction, amountInOffer, price, priceDecimal, orderAmount);
+            (direction, amountInOffer, price, priceDecimal, protocolFeeRate, subsidyFeeRate, orderAmount);
         (accountsTo, amountsTo) = _takeLimitOrder
             (OrderBookLibrary.getOppositeDirection(direction), amountIn, amountOutWithFee, price);
     }
@@ -371,7 +371,7 @@ contract OrderBook is OrderBookBase {
 
             //计算消耗掉一个价格的挂单需要的amountIn数量
             (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountOutForTakePrice(
-                tradeDir, amountAmmLeft, price, priceDecimal, amount);
+                tradeDir, amountAmmLeft, price, priceDecimal, protocolFeeRate, subsidyFeeRate, amount);
             amountOutGet += amountOutWithFee;
             amountInLeft = amountInLeft.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
@@ -409,7 +409,7 @@ contract OrderBook is OrderBookBase {
 
             //计算消耗掉一个价格的挂单需要的amountOut数量
             (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
-                amountAmmLeft, price, priceDecimal, amount);
+                amountAmmLeft, price, priceDecimal, protocolFeeRate, subsidyFeeRate, amount);
             amountInGet += amountInForTake;
             amountOutLeft = amountOutLeft.sub(amountOutWithFee);
             if (amountOutWithFee == amountAmmLeft) {
