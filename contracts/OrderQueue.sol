@@ -85,7 +85,7 @@ contract OrderQueue {
 
         //将元素从尾往前移，如果只有一个元素不需要进入循环
         uint pre = limitOrderQueueMap[direction][price][front];
-        uint cur;
+        uint cur = pre;
         for (uint i=front+1; i<rear; i++) {
             if (pre == data) {
                 break;
