@@ -38,7 +38,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //价格间隔参数-保证价格间隔的设置在一个合理的范围内
     uint public priceStep;
-    //最小数量
+    //最小计价货币数量
     uint public minAmount;
     //价格小数点位数
     uint public priceDecimal;
@@ -52,6 +52,12 @@ contract OrderBookBase is OrderQueue, PriceList {
     uint public baseBalance;
     //计价货币余额
     uint public quoteBalance;
+
+    //protocol fee rate (按交易量百分比收取，对应万分之x)
+    uint public protocolFeeRate;
+
+    //subsidy fee rate (从协议费用中抽取一部分用于补贴吃单方，对应protocolFeeRate * x%)
+    uint public subsidyFeeRate;
 
     //未完成总订单，链上不保存已成交的订单(订单id -> Order)
     mapping(uint => Order) public marketOrders;
@@ -118,6 +124,8 @@ contract OrderBookBase is OrderQueue, PriceList {
         priceStep = _priceStep;
         priceDecimal = IERC20(_quoteToken).decimals();
         minAmount = _minAmount;
+        protocolFeeRate = 10; // 10/10000
+        subsidyFeeRate = 50; // protocolFeeRate * 50%
     }
 
     function _getBaseBalance() internal view returns (uint balance) {
@@ -317,7 +325,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     // total amount
-    function totalAmount(uint direction)
+    function totalOrderAmount(uint direction)
     internal
     view
     returns (uint amount)
@@ -427,16 +435,36 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //更新价格间隔，需要考虑抢先交易的问题
     function priceStepUpdate(uint newPriceStep) external lock {
-        require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-            'Hybridx OrderBook: Order Exist');
+        if (msg.sender != IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin()){
+            require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+                'Hybridx OrderBook: Order Exist');
+        }
         priceStep = newPriceStep;
     }
 
-    //更新最小数量，需要考虑抢先交易的问题
+    //更新最小数量
     function minAmountUpdate(uint newMinAmount) external lock {
-        require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-            'Hybridx OrderBook: Order Exist');
+        if (msg.sender != IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin()){
+            require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+                'Hybridx OrderBook: Order Exist');
+        }
         minAmount = newMinAmount;
+    }
+
+    //更新协议费率，开放修改需要考虑抢先交易问题，暂时由社区账号管理
+    function protocolFeeRateUpdate(uint newProtocolFeeRate) external lock {
+        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+            "Hybridx OrderBook: Forbidden");
+        require(newProtocolFeeRate <= 30); //max fee is 0.3%, default is 0.1%
+        protocolFeeRate = newProtocolFeeRate;
+    }
+
+    //更新gas补贴费率
+    function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external lock {
+        require(msg.sender == IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin(),
+            "Hybridx OrderBook: Forbidden");
+        require(newSubsidyFeeRate <= 100); //max is 100% of protocolFeeRate
+        subsidyFeeRate = newSubsidyFeeRate;
     }
 
     //Return funds that were transferred into the contract by mistake
@@ -446,11 +474,11 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint balance = IERC20(token).balanceOf(address(this));
         uint refundBalance = balance;
         if (token == baseToken) {
-            uint orderBalance = totalAmount(LIMIT_SELL);
+            uint orderBalance = totalOrderAmount(LIMIT_SELL);
             refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
         else if (token == quoteToken) {
-            uint orderBalance = totalAmount(LIMIT_BUY);
+            uint orderBalance = totalOrderAmount(LIMIT_BUY);
             refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
 
@@ -540,7 +568,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         OrderBookLibrary.getAmountForMovePrice(direction, amountInOffer, reserveIn, reserveOut, price, decimal);
     }
 
-    function getAmountForTakePrice(
+    /*function getAmountForTakePrice(
         uint direction,
         uint amountInOffer,
         uint price,
@@ -587,7 +615,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         }
 
         amountUsed = amount - amountLeft;
-    }
+    }*/
 
     /*function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
        amountOut = OrderBookLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
