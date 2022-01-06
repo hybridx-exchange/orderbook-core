@@ -61,6 +61,10 @@ interface IOrderBook {
 
     //价格小数点位数
     function priceDecimal() external view returns (uint);
+    //协议费率
+    function protocolFeeRate() external view returns (uint);
+    //补贴费率
+    function subsidyFeeRate() external view returns (uint);
 
     //基准token -- 比如btc
     function baseToken() external view returns (address);
@@ -74,6 +78,10 @@ interface IOrderBook {
     function minAmount() external view returns (uint);
     //更新最小数量
     function minAmountUpdate(uint newMinAmount) external;
+
+    function protocolFeeRateUpdate(uint newProtocolFeeRate) external;
+
+    function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external;
 
     function getAmountOutForMovePrice(address tokenIn, uint amountInOffer)
     external
