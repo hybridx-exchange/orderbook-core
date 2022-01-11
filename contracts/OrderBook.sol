@@ -133,7 +133,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer,
         uint targetPrice,
         address to)
-    private
+    internal
     returns (uint amountLeft) {
         uint[] memory reserves = new uint[](4);//[reserveBase, reserveQuote, reserveBaseTmp, reserveQuoteTmp]
         (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
@@ -212,7 +212,7 @@ contract OrderBook is OrderBookBase {
         uint amountOffer,
         uint targetPrice,
         address to)
-    private
+    internal
     returns (uint amountLeft) {
         uint[] memory reserves = new uint[](4);//[reserveBase, reserveQuote, reserveBaseTmp, reserveQuoteTmp]
         (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
@@ -291,6 +291,7 @@ contract OrderBook is OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && price % priceStep == 0, 'Hybridx OrderBook: Price Invalid');
+        require(factory == msg.sender || user == msg.sender, 'Hybridx OrderBook: User Invalid');
 
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
@@ -317,6 +318,7 @@ contract OrderBook is OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && (price % priceStep) == 0, 'Hybridx OrderBook: Price Invalid');
+        require(factory == msg.sender || user == msg.sender, 'Hybridx OrderBook: User Invalid');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
@@ -337,7 +339,7 @@ contract OrderBook is OrderBookBase {
 
     function cancelLimitOrder(uint orderId) external lock {
         Order memory o = marketOrders[orderId];
-        require(o.owner == msg.sender);
+        require(o.owner == msg.sender, 'Hybridx OrderBook: Owner Invalid');
 
         _removeLimitOrder(o);
 
