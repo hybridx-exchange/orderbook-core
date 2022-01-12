@@ -2,7 +2,6 @@ pragma solidity =0.5.16;
 
 //pragma experimental ABIEncoderV2;//for decode [] output
 
-import "./libraries/OrderBookLibrary.sol";
 import "./libraries/Arrays.sol";
 import "./OrderBookBase.sol";
 
@@ -291,7 +290,6 @@ contract OrderBook is OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && price % priceStep == 0, 'Hybridx OrderBook: Price Invalid');
-        require(factory == msg.sender || user == msg.sender, 'Hybridx OrderBook: User Invalid');
 
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
@@ -318,7 +316,6 @@ contract OrderBook is OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && (price % priceStep) == 0, 'Hybridx OrderBook: Price Invalid');
-        require(factory == msg.sender || user == msg.sender, 'Hybridx OrderBook: User Invalid');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();

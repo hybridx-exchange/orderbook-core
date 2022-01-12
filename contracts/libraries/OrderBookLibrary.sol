@@ -65,6 +65,7 @@ library OrderBookLibrary {
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
+    // get lp price
     function getPrice(uint reserveBase, uint reserveQuote, uint decimal) internal pure returns (uint price){
         if (reserveBase != 0) {
             uint d = reserveQuote.mul(10 ** decimal);
@@ -72,12 +73,13 @@ library OrderBookLibrary {
         }
     }
 
+    // Make up for the LP price error caused by the loss of precision,
+    // increase the LP price a bit, and ensure that the buy order price is less than or equal to the LP price
     function getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmQuote,
         uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
     internal pure returns (uint amountLeft, uint amountAmmQuote, uint amountQuoteFix) {
         uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差，将LP的价格提高一点，保证买单价格小于或等于LP价格
-        //y' = x.p2 - x.p1, x不变，增加y, 使用价格变大
+        // y' = x.p2 - x.p1, x does not change, increase y, make the price bigger
         if (curPrice < targetPrice) {
             amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
                 .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
@@ -90,12 +92,13 @@ library OrderBookLibrary {
         }
     }
 
+    // Make up for the LP price error caused by the loss of precision,
+    // reduce the LP price a bit, and ensure that the order price is greater than or equal to the LP price
     function getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmBase,
         uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
     internal pure returns (uint amountLeft, uint amountAmmBase, uint amountBaseFix) {
         uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
-        //弥补精度损失造成的LP价格误差，将LP的价格降低一点，保证订单价格大于或等于LP价格
-        //x' = y/p1 - y/p2, y不变，增加x，使价格变小
+        //x' = y/p1 - y/p2, y is unchanged, increasing x makes the price smaller
         if (curPrice > targetPrice) {
             amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(targetPrice)
             .sub(reserveQuote.mul(10 ** priceDecimal).div(curPrice)));
@@ -202,8 +205,8 @@ library OrderBookLibrary {
         }
     }
 
-    //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
-    //手续费应该包含在amountOutWithFee中
+    // get the output after taking the order using amountInOffer
+    // The protocol fee should be included in the amountOutWithFee
     function getAmountOutForTakePrice(
         uint tradeDir,
         uint amountInOffer,
@@ -251,7 +254,7 @@ library OrderBookLibrary {
         communityFee = (fee.mul(100).sub(fee.mul(subsidyFeeRate))).div(100);
     }
 
-    //期望获得amountOutExpect，需要投入多少amountIn
+    //get the input after taking the order with amount out
     function getAmountInForTakePrice(
         uint tradeDir,
         uint amountOutExpect,
@@ -265,7 +268,7 @@ library OrderBookLibrary {
         //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc) for take sell limit order
         if (tradeDir == LIMIT_BUY) {
             uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
-            if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
+            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - orderAmountWithoutFee;
                 amountIn = getBuyAmountWithPrice(orderAmountWithoutFee, price, decimal);
@@ -281,7 +284,7 @@ library OrderBookLibrary {
         //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc) for take buy limit order
         else if (tradeDir == LIMIT_SELL) {
             uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
-            if (orderAmountWithoutFee <= amountOutExpect) { //吃掉所有
+            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - orderAmountWithoutFee;
                 amountIn = getSellAmountWithPrice(orderAmountWithoutFee, price, decimal);
