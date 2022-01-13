@@ -29,7 +29,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
             if (orderId == 0) break;
             Order memory order = marketOrders[orderId];
             require(orderId == order.orderId && order.orderType == direction && price == order.price,
-                'Hybridx OrderBook: Order Invalid');
+                'HybridX OrderBook: Order Invalid');
             accountsAll[index] = order.to;
             uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
             order.amountRemain = order.amountRemain - amountTake;
@@ -198,7 +198,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
             }
 
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
-            require(amountLeft == 0 || getPrice() >= targetPrice, "Hybridx OrderBook: Buy price mismatch");
+            require(amountLeft == 0 || getPrice() >= targetPrice, "HybridX OrderBook: Buy price mismatch");
         }
     }
 
@@ -277,7 +277,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
             }
 
             _ammSwapPrice(to, baseToken, quoteToken, amountAmmBase, amountAmmQuote);
-            require(amountLeft == 0 || getPrice() <= targetPrice, "Hybridx OrderBook: sell to target failed");
+            require(amountLeft == 0 || getPrice() <= targetPrice, "HybridX OrderBook: sell to target failed");
         }
     }
 
@@ -290,12 +290,12 @@ contract OrderBook is IOrderBook, OrderBookBase {
     external
     lock
     returns (uint orderId) {
-        require(price > 0 && price % priceStep == 0, 'Hybridx OrderBook: Price Invalid');
+        require(price > 0 && price % priceStep == 0, 'HybridX OrderBook: Price Invalid');
 
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
-        require(amountOffer >= minAmount, 'Hybridx OrderBook: Amount Invalid');
+        require(amountOffer >= minAmount, 'HybridX OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceUp(amountOffer, price, to);
@@ -316,13 +316,13 @@ contract OrderBook is IOrderBook, OrderBookBase {
     external
     lock
     returns (uint orderId) {
-        require(price > 0 && (price % priceStep) == 0, 'Hybridx OrderBook: Price Invalid');
+        require(price > 0 && (price % priceStep) == 0, 'HybridX OrderBook: Price Invalid');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
         uint minQuoteAmount = OrderBookLibrary.getQuoteAmountWithBaseAmountAtPrice(minAmount, price, baseDecimal);
-        require(amountOffer >= minQuoteAmount, 'Hybridx OrderBook: Amount Invalid');
+        require(amountOffer >= minQuoteAmount, 'HybridX OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceDown(amountOffer, price, to);
@@ -337,7 +337,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
 
     function cancelLimitOrder(uint orderId) external lock {
         Order memory o = marketOrders[orderId];
-        require(o.owner == msg.sender, 'Hybridx OrderBook: Owner Invalid');
+        require(o.owner == msg.sender, 'HybridX OrderBook: Owner Invalid');
 
         _removeLimitOrder(o);
 
@@ -437,7 +437,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
     lock
     returns (uint amountOut, address[] memory accounts, uint[] memory amounts) {
         //先吃单再付款，需要保证只有pair可以调用
-        require(msg.sender == pair, 'Hybridx OrderBook: invalid sender');
+        require(msg.sender == pair, 'HybridX OrderBook: invalid sender');
         uint[] memory reserves = new uint[](2);//[reserveBase, reserveQuote]
         (reserves[0], reserves[1]) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
 

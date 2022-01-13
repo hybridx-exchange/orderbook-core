@@ -90,7 +90,7 @@ library OrderBookLibrary {
             amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** baseDecimal)
                 .sub(reserveBase.mul(curPrice).div(10 ** baseDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
-            require(_amountLeft >= amountQuoteFix, "Hybridx OrderBook: Not Enough Output Amount");
+            require(_amountLeft >= amountQuoteFix, "HybridX OrderBook: Not Enough Output Amount");
             (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
         }
         else {
@@ -109,7 +109,7 @@ library OrderBookLibrary {
             amountBaseFix = (reserveQuote.mul(10 ** baseDecimal).div(targetPrice)
             .sub(reserveQuote.mul(10 ** baseDecimal).div(curPrice)));
             amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
-            require(_amountLeft >= amountBaseFix, "Hybridx OrderBook: Not Enough Input Amount");
+            require(_amountLeft >= amountBaseFix, "HybridX OrderBook: Not Enough Input Amount");
             (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
         }
         else {
