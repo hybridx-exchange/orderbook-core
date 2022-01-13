@@ -26,14 +26,20 @@ library OrderBookLibrary {
         admin = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin();
     }
 
-    //get buy amount with price based on price and offered amount
-    function getBuyAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
-        amountGet = amountOffer.mul(10 ** decimal).div(price);
+    //get quote amount with base amount at price --- y = x * p / x_decimal
+    function getQuoteAmountWithBaseAmountAtPrice(uint amountBase, uint price, uint baseDecimal)
+    internal
+    pure
+    returns (uint amountGet) {
+        amountGet = amountBase.mul(price).div(10 ** baseDecimal);
     }
 
-    //get sell amount with price based on price and offered amount
-    function getSellAmountWithPrice(uint amountOffer, uint price, uint decimal) internal pure returns (uint amountGet){
-        amountGet = amountOffer.mul(price).div(10 ** decimal);
+    //get base amount with quote amount at price --- x = y * x_decimal / p
+    function getBaseAmountWithQuoteAmountAtPrice(uint amountQuote, uint price, uint baseDecimal)
+    internal
+    pure
+    returns (uint amountGet) {
+        amountGet = amountQuote.mul(10 ** baseDecimal).div(price);
     }
 
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
@@ -76,13 +82,13 @@ library OrderBookLibrary {
     // Make up for the LP price error caused by the loss of precision,
     // increase the LP price a bit, and ensure that the buy order price is less than or equal to the LP price
     function getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmQuote,
-        uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint baseDecimal)
     internal pure returns (uint amountLeft, uint amountAmmQuote, uint amountQuoteFix) {
-        uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
+        uint curPrice = getPrice(reserveBase, reserveQuote, baseDecimal);
         // y' = x.p2 - x.p1, x does not change, increase y, make the price bigger
         if (curPrice < targetPrice) {
-            amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** priceDecimal)
-                .sub(reserveBase.mul(curPrice).div(10 ** priceDecimal)));
+            amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** baseDecimal)
+                .sub(reserveBase.mul(curPrice).div(10 ** baseDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
             require(_amountLeft >= amountQuoteFix, "Hybridx OrderBook: Not Enough Output Amount");
             (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
@@ -95,13 +101,13 @@ library OrderBookLibrary {
     // Make up for the LP price error caused by the loss of precision,
     // reduce the LP price a bit, and ensure that the order price is greater than or equal to the LP price
     function getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmBase,
-        uint reserveBase, uint reserveQuote, uint targetPrice, uint priceDecimal)
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint baseDecimal)
     internal pure returns (uint amountLeft, uint amountAmmBase, uint amountBaseFix) {
-        uint curPrice = getPrice(reserveBase, reserveQuote, priceDecimal);
+        uint curPrice = getPrice(reserveBase, reserveQuote, baseDecimal);
         //x' = y/p1 - y/p2, y is unchanged, increasing x makes the price smaller
         if (curPrice > targetPrice) {
-            amountBaseFix = (reserveQuote.mul(10 ** priceDecimal).div(targetPrice)
-            .sub(reserveQuote.mul(10 ** priceDecimal).div(curPrice)));
+            amountBaseFix = (reserveQuote.mul(10 ** baseDecimal).div(targetPrice)
+            .sub(reserveQuote.mul(10 ** baseDecimal).div(curPrice)));
             amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
             require(_amountLeft >= amountBaseFix, "Hybridx OrderBook: Not Enough Input Amount");
             (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
@@ -219,7 +225,7 @@ library OrderBookLibrary {
         uint fee;
         if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
-            uint amountOut = getBuyAmountWithPrice(amountInOffer, price, decimal);
+            uint amountOut = getBaseAmountWithQuoteAmountAtPrice(amountInOffer, price, decimal);
             if (amountOut.mul(10000) <= orderAmount.mul(10000-protocolFeeRate)) { //amountOut <= orderAmount * (1-0.3%)
                 amountInUsed = amountInOffer;
                 fee = amountOut.mul(protocolFeeRate).div(10000);
@@ -228,14 +234,14 @@ library OrderBookLibrary {
             else {
                 amountOut = orderAmount.mul(10000-protocolFeeRate).div(10000);
                 //amountIn = amountOutWithoutFee * price
-                amountInUsed = getSellAmountWithPrice(amountOut, price, decimal);
+                amountInUsed = getQuoteAmountWithBaseAmountAtPrice(amountOut, price, decimal);
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee.sub(amountOut);
             }
         }
         else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
             //amountOut = amountInOffer * price ========= match limit buy order
-            uint amountOut = getSellAmountWithPrice(amountInOffer, price, decimal);
+            uint amountOut = getQuoteAmountWithBaseAmountAtPrice(amountInOffer, price, decimal);
             if (amountOut.mul(10000) <= orderAmount.mul(10000-protocolFeeRate)) { //amountOut <= orderAmount * (1-0.3%)
                 amountInUsed = amountInOffer;
                 fee = amountOut.mul(protocolFeeRate).div(10000);
@@ -243,8 +249,8 @@ library OrderBookLibrary {
             }
             else {
                 amountOut = orderAmount.mul(10000-protocolFeeRate).div(10000);
-                //amountIn = amountOutWithoutFee * price
-                amountInUsed = getBuyAmountWithPrice(amountOut, price, decimal);
+                //amountIn = amountOutWithoutFee / price
+                amountInUsed = getBaseAmountWithQuoteAmountAtPrice(amountOut, price, decimal);
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - amountOut;
             }
@@ -271,14 +277,14 @@ library OrderBookLibrary {
             if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - orderAmountWithoutFee;
-                amountIn = getBuyAmountWithPrice(orderAmountWithoutFee, price, decimal);
+                amountIn = getQuoteAmountWithBaseAmountAtPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
                 amountOutWithFee = amountOutExpect;
                 uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
                 fee = amountOutWithFee - amountOutWithoutFee;
                 //amountIn = amountOutWithoutFee * price
-                amountIn = getBuyAmountWithPrice(amountOutWithoutFee, price, decimal);
+                amountIn = getQuoteAmountWithBaseAmountAtPrice(amountOutWithoutFee, price, decimal);
             }
         }
         //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc) for take buy limit order
@@ -287,13 +293,13 @@ library OrderBookLibrary {
             if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
                 amountOutWithFee = orderAmount;
                 fee = amountOutWithFee - orderAmountWithoutFee;
-                amountIn = getSellAmountWithPrice(orderAmountWithoutFee, price, decimal);
+                amountIn = getBaseAmountWithQuoteAmountAtPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
                 amountOutWithFee = amountOutExpect;
                 uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
                 fee = amountOutWithFee - amountOutWithoutFee;
-                amountIn = getSellAmountWithPrice(amountOutWithoutFee, price, decimal);
+                amountIn = getBaseAmountWithQuoteAmountAtPrice(amountOutWithoutFee, price, decimal);
             }
         }
 

@@ -39,8 +39,8 @@ contract OrderBookBase is OrderQueue, PriceList {
     uint public priceStep;
     //最小计价货币数量
     uint public minAmount;
-    //价格小数点位数
-    uint public priceDecimal;
+    //基准代币小数点位数，用于通过价格计算数量
+    uint public baseDecimal;
 
     //基础货币
     address public baseToken;
@@ -121,7 +121,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         priceStep = _priceStep;
-        priceDecimal = IERC20(_quoteToken).decimals();
+        baseDecimal = IERC20(_baseToken).decimals();
         minAmount = _minAmount;
         protocolFeeRate = 30; // 30/10000
         subsidyFeeRate = 50; // protocolFeeRate * 50%
@@ -197,9 +197,16 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint price) {
         (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         if (reserveBase != 0) {
-            uint d = reserveQuote.mul(10 ** priceDecimal);
+            uint d = reserveQuote.mul(10 ** baseDecimal);
             price = d / reserveBase;
         }
+    }
+
+    function priceDecimal()
+    public
+    view
+    returns (uint decimal) {
+        decimal = IERC20(quoteToken).decimals();
     }
 
     function tradeDirection(address tokenIn)

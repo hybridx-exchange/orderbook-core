@@ -2,10 +2,11 @@ pragma solidity =0.5.16;
 
 //pragma experimental ABIEncoderV2;//for decode [] output
 
+import "./interfaces/IOrderBook.sol";
 import "./libraries/Arrays.sol";
 import "./OrderBookBase.sol";
 
-contract OrderBook is OrderBookBase {
+contract OrderBook is IOrderBook, OrderBookBase {
     using SafeMath for uint;
     using SafeMath for uint112;
     using Arrays for address[];
@@ -69,7 +70,7 @@ contract OrderBook is OrderBookBase {
     returns (uint amountIn, uint amountOutWithFee, uint communityFee,
         address[] memory accountsTo, uint[] memory amountsTo) {
         (amountIn, amountOutWithFee, communityFee) = OrderBookLibrary.getAmountOutForTakePrice
-            (direction, amountInOffer, price, priceDecimal, protocolFeeRate, subsidyFeeRate, orderAmount);
+            (direction, amountInOffer, price, baseDecimal, protocolFeeRate, subsidyFeeRate, orderAmount);
         (accountsTo, amountsTo) = _takeLimitOrder
             (OrderBookLibrary.getOppositeDirection(direction), amountIn, amountOutWithFee, price);
     }
@@ -150,7 +151,7 @@ contract OrderBook is OrderBookBase {
             if (liquidityExists) {
                 (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
-                        reserves[0], reserves[1], price, priceDecimal);
+                        reserves[0], reserves[1], price, baseDecimal);
                 if (amountAmmLeft == 0) {
                     amountLeft = 0; //avoid getAmountForMovePrice recalculation
                     break;
@@ -186,14 +187,14 @@ contract OrderBook is OrderBookBase {
         if (liquidityExists && amountLeft > 0 && price != targetPrice) {
             (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_BUY, amountLeft,
-                    reserves[0], reserves[1], targetPrice, priceDecimal);
+                    reserves[0], reserves[1], targetPrice, baseDecimal);
         }
 
         if (amountAmmQuote > 0) {
             if (amountLeft > 0) {
                 (amountLeft, amountAmmQuote,) =
                     OrderBookLibrary.getFixAmountForMovePriceUp(amountLeft, amountAmmQuote, reserves[2], reserves[3],
-                        targetPrice, priceDecimal);
+                        targetPrice, baseDecimal);
             }
 
             _ammSwapPrice(to, quoteToken, baseToken, amountAmmQuote, amountAmmBase);
@@ -229,7 +230,7 @@ contract OrderBook is OrderBookBase {
             if (liquidityExists) {
                 (amountAmmLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                     OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
-                        reserves[0], reserves[1], price, priceDecimal);
+                        reserves[0], reserves[1], price, baseDecimal);
                 if (amountAmmLeft == 0) {
                     amountLeft = 0;  //avoid getAmountForMovePrice recalculation
                     break;
@@ -265,14 +266,14 @@ contract OrderBook is OrderBookBase {
         if (liquidityExists && amountLeft > 0 && price != targetPrice) {
             (amountLeft, amountAmmBase, amountAmmQuote, reserves[2], reserves[3]) =
                 OrderBookLibrary.getAmountForMovePrice(LIMIT_SELL, amountLeft,
-                    reserves[0], reserves[1], targetPrice, priceDecimal);
+                    reserves[0], reserves[1], targetPrice, baseDecimal);
         }
 
         if (amountAmmBase > 0) {
             if (amountLeft > 0) {
                 (amountLeft, amountAmmBase,) =
                     OrderBookLibrary.getFixAmountForMovePriceDown(amountLeft, amountAmmBase, reserves[2], reserves[3],
-                        targetPrice, priceDecimal);
+                        targetPrice, baseDecimal);
             }
 
             _ammSwapPrice(to, baseToken, quoteToken, amountAmmBase, amountAmmQuote);
@@ -320,7 +321,7 @@ contract OrderBook is OrderBookBase {
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
-        uint minQuoteAmount = OrderBookLibrary.getSellAmountWithPrice(minAmount, price, priceDecimal);
+        uint minQuoteAmount = OrderBookLibrary.getQuoteAmountWithBaseAmountAtPrice(minAmount, price, baseDecimal);
         require(amountOffer >= minQuoteAmount, 'Hybridx OrderBook: Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
@@ -369,14 +370,14 @@ contract OrderBook is OrderBookBase {
             //先计算pair从当前价格到price消耗amountIn的数量
             (uint amountAmmLeft,,,,) =
                 OrderBookLibrary.getAmountForMovePrice(tradeDir, amountInLeft, reserveBase, reserveQuote, price,
-                    priceDecimal);
+                    baseDecimal);
             if (amountAmmLeft == 0) {
                 break;
             }
 
             //计算消耗掉一个价格的挂单需要的amountIn数量
             (uint amountInForTake, uint amountOutWithFee, uint communityFee) = OrderBookLibrary.getAmountOutForTakePrice(
-                tradeDir, amountAmmLeft, price, priceDecimal, protocolFeeRate, subsidyFeeRate, amount);
+                tradeDir, amountAmmLeft, price, baseDecimal, protocolFeeRate, subsidyFeeRate, amount);
             amountOutGet += amountOutWithFee.sub(communityFee);
             amountInLeft = amountInLeft.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
@@ -407,14 +408,14 @@ contract OrderBook is OrderBookBase {
             //先计算pair从当前价格到price消耗amountIn的数量
             (uint amountAmmLeft,,,,) =
             OrderBookLibrary.getAmountForMovePriceWithAmountOut(tradeDir, amountOutLeft, reserveBase, reserveQuote,
-                price, priceDecimal);
+                price, baseDecimal);
             if (amountAmmLeft == 0) {
                 break;
             }
 
             //计算消耗掉一个价格的挂单需要的amountOut数量
             (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
-                amountAmmLeft, price, priceDecimal, protocolFeeRate, subsidyFeeRate, amount);
+                amountAmmLeft, price, baseDecimal, protocolFeeRate, subsidyFeeRate, amount);
             amountInGet += amountInForTake;
             amountOutLeft = amountOutLeft.sub(amountOutWithFee);
             if (amountOutWithFee == amountAmmLeft) {
@@ -455,7 +456,7 @@ contract OrderBook is OrderBookBase {
                 reserves[0],
                 reserves[1],
                 price,
-                priceDecimal);
+                baseDecimal);
             if (amountAmmLeft == 0) {
                 break;
             }
