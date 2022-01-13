@@ -61,6 +61,8 @@ interface IOrderBook {
     //get pair address
     function pair() external view returns (address);
 
+    //get base token decimal
+    function baseDecimal() external view returns (uint);
     //get price decimal
     function priceDecimal() external view returns (uint);
     //get protocol fee rate
