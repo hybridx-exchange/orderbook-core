@@ -1,7 +1,5 @@
 pragma solidity =0.5.16;
 
-//pragma experimental ABIEncoderV2;//for decode [] output
-
 import "./interfaces/IOrderBook.sol";
 import "./libraries/Arrays.sol";
 import "./OrderBookBase.sol";

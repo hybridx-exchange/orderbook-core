@@ -215,10 +215,10 @@
     "@ethersproject/properties" "^5.5.0"
     "@ethersproject/strings" "^5.5.0"
 
-"@hybridx-exchange/v2-core@0.1.2":
-  version "0.1.2"
-  resolved "https://registry.yarnpkg.com/@hybridx-exchange/v2-core/-/v2-core-0.1.2.tgz#8438124a01761c72ede444c7605ba0f2816b5add"
-  integrity sha512-Tw36zfl6I6xbUp1BBrTxF3wLV0KbVozUSOPxGWke4ijwPSDyM5xljbCm65ojuUl2zuwpQI5XDxPaClZZHRJ08A==
+"@hybridx-exchange/v2-core@0.1.4":
+  version "0.1.4"
+  resolved "https://registry.yarnpkg.com/@hybridx-exchange/v2-core/-/v2-core-0.1.4.tgz#59425aea1c4855a3caa8d0d8ee43162c99d902c3"
+  integrity sha512-VJDCVShWGvHu/MmFHd1PNxI6lkvB4x/HH1BpwjZMeVjreYo9p8vCKR7vmifmmNcO9X/ZZ21IgB6ti31pX2dkbg==
 
 "@resolver-engine/core@^0.3.3":
   version "0.3.3"
