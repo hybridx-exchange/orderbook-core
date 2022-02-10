@@ -464,7 +464,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
             uint amountOutWithSubsidyFee;
             (amountInForTake, amountOutWithSubsidyFee, accounts, amounts) =
                 _getAmountAndPay(to, tradeDir, amountAmmLeft, price, amount, accounts, amounts);
-            amountOut += amountOutWithSubsidyFee;
+            //amountOut += amountOutWithSubsidyFee;
             amountIn = amountIn.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
                 break;
