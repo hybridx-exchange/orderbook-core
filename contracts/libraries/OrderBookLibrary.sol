@@ -26,6 +26,10 @@ library OrderBookLibrary {
         admin = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin();
     }
 
+    function getUniswapV2OrderBookFactory(address factory) internal view returns (address factoryRet){
+        factoryRet = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).getOrderBookFactory();
+    }
+
     //get quote amount with base amount at price --- y = x * p / x_decimal
     function getQuoteAmountWithBaseAmountAtPrice(uint amountBase, uint price, uint baseDecimal)
     internal

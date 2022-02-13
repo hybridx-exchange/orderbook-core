@@ -289,8 +289,8 @@ contract OrderBook is IOrderBook, OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && price % priceStep == 0, 'HybridX OrderBook: Price Invalid');
-        require(IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).getOrderBookFactory() == factory,
-            'HybridX OrderBook: OrderBook Factory is not connected');
+        require(OrderBookLibrary.getUniswapV2OrderBookFactory(factory) == factory,
+            'HybridX OrderBook: OrderBook unconnected');
 
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
@@ -317,8 +317,8 @@ contract OrderBook is IOrderBook, OrderBookBase {
     lock
     returns (uint orderId) {
         require(price > 0 && (price % priceStep) == 0, 'HybridX OrderBook: Price Invalid');
-        require(IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).getOrderBookFactory() == factory,
-            'HybridX OrderBook: OrderBook Factory is not connected');
+        require(OrderBookLibrary.getUniswapV2OrderBookFactory(factory) == factory,
+            'HybridX OrderBook: OrderBook unconnected');
 
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
