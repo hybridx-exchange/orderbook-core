@@ -43,7 +43,8 @@
     "precompile": "yarn clean",
     "compile": "waffle .waffle.json",
     "pretest": "yarn compile",
-    "test": "mocha"
+    "test": "mocha",
+    "prepublishOnly": "yarn test"
   },
   "license": "GPL-3.0-or-later"
 }
