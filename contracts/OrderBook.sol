@@ -93,7 +93,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
 
         //当token为weth时，外部调用的时候直接将weth转出
         address tokenOut = direction == LIMIT_BUY ? baseToken : quoteToken;
-        _safeTransfer(tokenOut, to, amountOutWithFee.sub(amountOutWithSubsidyFee));
+        _safeTransfer(tokenOut, to, amountOutWithSubsidyFee);
     }
 
     function _ammSwapPrice(
@@ -437,7 +437,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
     external
     lock
-    returns (uint amountOut, address[] memory accounts, uint[] memory amounts) {
+    returns (uint amountOutLeft, address[] memory accounts, uint[] memory amounts) {
         //先吃单再付款，需要保证只有pair可以调用
         require(msg.sender == pair, 'HybridX OrderBook: invalid sender');
         uint[] memory reserves = new uint[](2);//[reserveBase, reserveQuote]
@@ -465,10 +465,8 @@ contract OrderBook is IOrderBook, OrderBookBase {
 
             //消耗掉一个价格的挂单并返回实际需要的amountIn数量
             uint amountInForTake;
-            uint amountOutWithSubsidyFee;
-            (amountInForTake, amountOutWithSubsidyFee, accounts, amounts) =
+            (amountInForTake,, accounts, amounts) =
                 _getAmountAndPay(to, tradeDir, amountAmmLeft, price, amount, accounts, amounts);
-            //amountOut += amountOutWithSubsidyFee;
             amountIn = amountIn.sub(amountInForTake);
             if (amountInForTake == amountAmmLeft) {
                 break;
@@ -477,8 +475,11 @@ contract OrderBook is IOrderBook, OrderBookBase {
             (price, amount) = nextBook(orderDir, price);
         }
 
+        //更新balance
+        _updateBalance();
+
         if (amountIn > 0) {
-            amountOut += tradeDir == LIMIT_BUY ?
+            amountOutLeft += tradeDir == LIMIT_BUY ?
                 OrderBookLibrary.getAmountOut(amountIn, reserves[1], reserves[0]) :
                 OrderBookLibrary.getAmountOut(amountIn, reserves[0], reserves[1]);
         }

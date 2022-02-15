@@ -151,7 +151,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         for(uint i=0; i<accounts.length; i++) {
             if (WETH == token){
                 IWETH(WETH).withdraw(amounts[i]);
-                TransferHelper.safeTransferETH( accounts[i], amounts[i]);
+                TransferHelper.safeTransferETH(accounts[i], amounts[i]);
             }
             else {
                 _safeTransfer(token, accounts[i], amounts[i]);

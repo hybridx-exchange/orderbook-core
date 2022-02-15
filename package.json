@@ -1,7 +1,7 @@
 {
   "name": "@hybridx-exchange/orderbook-core",
   "description": "🎛 Core contracts for the HybridX protocol",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "homepage": "https://hybridx.exchange",
   "repository": {
     "type": "git",
@@ -34,7 +34,7 @@
     "solc": "0.5.16",
     "ts-node": "^8.5.4",
     "typescript": "^3.7.3",
-    "@hybridx-exchange/v2-core": "0.1.5"
+    "@hybridx-exchange/v2-core": "0.1.6"
   },
   "scripts": {
     "lint": "yarn prettier ./test/*.ts --check",
