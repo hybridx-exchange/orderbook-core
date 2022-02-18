@@ -1,7 +1,7 @@
 {
   "name": "@hybridx-exchange/orderbook-core",
   "description": "🎛 Core contracts for the HybridX protocol",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "homepage": "https://hybridx.exchange",
   "repository": {
     "type": "git",
