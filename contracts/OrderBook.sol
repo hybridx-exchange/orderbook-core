@@ -278,7 +278,6 @@ contract OrderBook is IOrderBook, OrderBookBase {
     }
 
     //limit order for buy base token with quote token
-    //对于市价单，如果订单数量不是最小订单的整数倍，考虑一下是否需要退回
     function createBuyLimitOrder(
         address user,
         uint price,

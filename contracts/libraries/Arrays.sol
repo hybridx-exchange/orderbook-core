@@ -1,6 +1,6 @@
 pragma solidity >=0.5.0;
 
-// a library for performing various math operations
+// a library for performing various array operations
 
 library Arrays {
     function extendUint(uint[] memory x, uint[] memory y) internal pure returns (uint[] memory z) {
