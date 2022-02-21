@@ -7,8 +7,6 @@ import "./OrderBookBase.sol";
 contract OrderBook is IOrderBook, OrderBookBase {
     using SafeMath for uint;
     using SafeMath for uint112;
-    using Arrays for address[];
-    using Arrays for uint[];
 
     function _takeLimitOrder(
         uint direction,
@@ -87,8 +85,8 @@ contract OrderBook is IOrderBook, OrderBookBase {
         uint communityFee;
         (amountIn, amountOutWithFee, communityFee, accounts, amounts) =
             _getAmountAndTake(direction, amountInOffer, price, orderAmount);
-        amounts.extendUint(_amounts);
-        accounts.extendAddress(_accounts);
+        amounts = Arrays.extendUint(amounts, _amounts);
+        accounts = Arrays.extendAddress(accounts, _accounts);
         amountOutWithSubsidyFee = amountOutWithFee.sub(communityFee);
 
         //当token为weth时，外部调用的时候直接将weth转出
