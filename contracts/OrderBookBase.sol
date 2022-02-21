@@ -439,6 +439,16 @@ contract OrderBookBase is OrderQueue, PriceList {
         amount = listAgg(direction, next);
     }
 
+    function nextBook2(
+        uint direction,
+        uint cur)
+    internal
+    view
+    returns (uint next, uint amount) {
+        next = nextPrice2(direction, cur);
+        amount = listAgg(direction, next);
+    }
+
     //更新价格间隔，需要考虑抢先交易的问题
     function priceStepUpdate(uint newPriceStep) external lock {
         if (msg.sender != OrderBookLibrary.getAdmin(factory)){
@@ -498,137 +508,4 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint112 reserveBase, uint112 reserveQuote) {
         (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
     }
-
-    /*************************************************************************************************
-                                         libraries function for test
-    **************************************************************************************************/
-    /*function getSection1(uint reserveIn, uint reserveOut, uint price, uint decimal)
-    external
-    pure
-    returns (uint section1) {
-        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9) + reserveIn.mul(reserveOut).mul(3988000).mul
-        (10**decimal).div(price));
-    }*/
-
-    /*function getAmountQuoteForPriceDown(
-        uint amountIn,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external
-    pure
-    returns (uint amountOut) {
-        amountOut = OrderBookLibrary.getAmountQuoteForPriceDown(amountIn, reserveIn, reserveOut, price,
-            decimal);
-    }
-
-    function getAmountBaseForPriceUp(
-        uint amountOut,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external
-    pure
-    returns (uint amountIn) {
-        amountIn = OrderBookLibrary.getAmountBaseForPriceUp(amountOut, reserveIn, reserveOut, price,
-            decimal);
-    }
-
-    function getAmountQuoteForPriceDown(
-        uint amountBase,
-        uint reserveBase,
-        uint reserveQuote,
-        uint price,
-        uint decimal)
-    internal
-    pure
-    returns (uint amountQuote) {
-        amountQuote = reserveQuote.sub((reserveBase.add(amountBase)).mul(price).div(10**decimal));
-        //y' = y-(x+amountIn)*price
-    }
-
-    function getAmountBaseForPriceUp(
-        uint amountQuote,
-        uint reserveBase,
-        uint reserveQuote,
-        uint price,
-        uint decimal)
-    internal
-    pure
-    returns (uint amountBase) {
-        amountBase = reserveBase.sub((reserveQuote.add(amountQuote)).mul(10**decimal).div(price));
-        //x' = x-(y+amountOut)/price
-    }*/
-
-    function getAmountForMovePrice(
-        uint direction,
-        uint amountInOffer,
-        uint reserveIn,
-        uint reserveOut,
-        uint price,
-        uint decimal)
-    external pure returns (uint amountInLeft, uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (amountInLeft, amountIn, amountOut, reserveInNew, reserveOutNew) =
-        OrderBookLibrary.getAmountForMovePrice(direction, amountInOffer, reserveIn, reserveOut, price, decimal);
-    }
-
-    /*function getAmountForTakePrice(
-        uint direction,
-        uint amountInOffer,
-        uint price,
-        uint orderAmount)
-    external
-    view
-    returns (uint amountIn, uint amountOutWithFee, uint fee) {
-        (amountIn, amountOutWithFee, fee) = OrderBookLibrary.getAmountOutForTakePrice
-            (direction, amountInOffer, price, priceDecimal, orderAmount);
-    }
-
-    function getAmountsForTakePrice(
-        uint direction,
-        uint amount,
-        uint price)
-    external
-    view
-    returns (address[] memory accountsTo, uint[] memory amountsTo, uint amountUsed) {
-        uint amountLeft = amount;
-        uint index;
-        uint length = length(direction, price);
-        accountsTo = new address[](length);
-        amountsTo = new uint[](length);
-        uint decimal = priceDecimal;
-        while (index < length && amountLeft > 0) {
-            uint orderId = get(direction, price, index);
-            if (orderId == 0) break;
-            Order memory order = marketOrders[orderId];
-            require(orderId == order.orderId && order.orderType == direction && price == order.price,
-                'HybridX OrderBook: Order Invalid');
-            accountsTo[index] = order.to;
-            uint amountTake = amountLeft > order.amountRemain ? order.amountRemain : amountLeft;
-            order.amountRemain = order.amountRemain - amountTake;
-            amountsTo[index] = direction == LIMIT_SELL ?
-                OrderBookLibrary.getSellAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal) :
-                OrderBookLibrary.getBuyAmountWithPrice(amountTake.mul(1000).div(1003), price, decimal);
-
-            amountLeft = amountLeft - amountTake;
-            if (order.amountRemain != 0) {
-                break;
-            }
-
-            index++;
-        }
-
-        amountUsed = amount - amountLeft;
-    }*/
-
-    /*function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut) {
-       amountOut = OrderBookLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
-    }
-
-    // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
-    function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn) {
-        amountIn = OrderBookLibrary.getAmountIn(amountOut, reserveIn, reserveOut);
-    }*/
 }

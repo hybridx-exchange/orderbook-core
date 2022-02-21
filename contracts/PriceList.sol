@@ -84,4 +84,14 @@ contract PriceList {
     returns (uint next) {
         next = limitOrderPriceListMap[direction][cur];
     }
+
+    function nextPrice2(
+        uint direction,
+        uint cur) //从0开始获取下一个价格，next为0时再取一次第一个，兼容从头按顺序遍历时删除已遍历的元素，为0则表示没有链表为空
+    internal
+    view
+    returns (uint next) {
+        next = limitOrderPriceListMap[direction][cur];
+        next = next == 0 ? limitOrderPriceListMap[direction][0] : next;
+    }
 }

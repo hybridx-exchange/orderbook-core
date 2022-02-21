@@ -173,7 +173,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
                 amountLeft = amountLeft.sub(amountInForTake);
             }
 
-            price = nextPrice(LIMIT_SELL, price);
+            price = nextPrice2(LIMIT_SELL, price);
         }
 
         // send the user for take all limit order's amount.
@@ -252,7 +252,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
                 amountLeft = amountLeft.sub(amountInForTake);
             }
 
-            price = nextPrice(LIMIT_BUY, price);
+            price = nextPrice2(LIMIT_BUY, price);
         }
 
         // send the user for take all limit order's amount.
@@ -472,7 +472,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
                 break;
             }
 
-            (price, amount) = nextBook(orderDir, price);
+            (price, amount) = nextBook2(orderDir, price);
         }
 
         //更新balance
