@@ -50,7 +50,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
         if (index > 0) {
             accountsTo = Arrays.subAddress(accountsAll, index);
             amountsTo = new uint[](index);
-            require(amountsTo.length <= amountsOut.length);
+            require(amountsTo.length <= amountsOut.length, "HybridX OrderBook: Index Invalid");
             for (uint i; i<index; i++) {
                 amountsTo[i] = amountInOffer.mul(amountsOut[i]).div(amountOutWithFee);
             }

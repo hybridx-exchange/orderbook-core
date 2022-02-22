@@ -26,7 +26,7 @@ library Arrays {
     }
 
     function subAddress(address[] memory x, uint newLen) internal pure returns (address[] memory z) {
-        require(newLen <= x.length);
+        require(newLen <= x.length, "Invalid length");
         if (newLen == x.length) {
             z = x;
         }

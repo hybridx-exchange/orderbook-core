@@ -471,7 +471,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     function protocolFeeRateUpdate(uint newProtocolFeeRate) external lock {
         require(msg.sender == OrderBookLibrary.getAdmin(factory),
             "HybridX OrderBook: Forbidden");
-        require(newProtocolFeeRate <= 30); //max fee is 0.3%, default is 0.1%
+        require(newProtocolFeeRate <= 30, "HybridX OrderBook: Invalid Fee Rate"); //max fee is 0.3%, default is 0.1%
         protocolFeeRate = newProtocolFeeRate;
     }
 
@@ -479,7 +479,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external lock {
         require(msg.sender == OrderBookLibrary.getAdmin(factory),
             "HybridX OrderBook: Forbidden");
-        require(newSubsidyFeeRate <= 100); //max is 100% of protocolFeeRate
+        require(newSubsidyFeeRate <= 100, "HybridX OrderBook: Invalid Fee Rate"); //max is 100% of protocolFeeRate
         subsidyFeeRate = newSubsidyFeeRate;
     }
 
