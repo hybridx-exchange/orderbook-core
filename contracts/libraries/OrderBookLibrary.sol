@@ -48,8 +48,8 @@ library OrderBookLibrary {
 
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
-        require(amountIn > 0, 'OrderBookLibrary: INSUFFICIENT_INPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBookLibrary: INSUFFICIENT_LIQUIDITY');
+        require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint amountInWithFee = amountIn.mul(997);
         uint numerator = amountInWithFee.mul(reserveOut);
         uint denominator = reserveIn.mul(1000).add(amountInWithFee);
@@ -58,8 +58,8 @@ library OrderBookLibrary {
 
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) internal pure returns (uint amountIn) {
-        require(amountOut > 0, 'OrderBookLibrary: INSUFFICIENT_OUTPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBookLibrary: INSUFFICIENT_LIQUIDITY');
+        require(amountOut > 0, 'INSUFFICIENT_OUTPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint numerator = reserveIn.mul(amountOut).mul(1000);
         uint denominator = reserveOut.sub(amountOut).mul(997);
         amountIn = (numerator / denominator).add(1);
@@ -68,9 +68,9 @@ library OrderBookLibrary {
     // fetches and sorts the reserves for a pair
     function getReserves(address pair, address tokenA, address tokenB) internal view returns
     (uint112 reserveA, uint112 reserveB) {
-        require(tokenA != tokenB, 'OrderBookLibrary: IDENTICAL_ADDRESSES');
+        require(tokenA != tokenB, 'IDENTICAL_ADDRESSES');
         address token0 = tokenA < tokenB ? tokenA : tokenB;
-        require(token0 != address(0), 'OrderBookLibrary: ZERO_ADDRESS');
+        require(token0 != address(0), 'ZERO_ADDRESS');
         (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(pair).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
@@ -94,7 +94,7 @@ library OrderBookLibrary {
             amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** baseDecimal)
                 .sub(reserveBase.mul(curPrice).div(10 ** baseDecimal)));
             amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
-            require(_amountLeft >= amountQuoteFix, "HybridX OrderBook: Not Enough Output Amount");
+            require(_amountLeft >= amountQuoteFix, "Not Enough Output Amount");
             (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
         }
         else {
@@ -113,7 +113,7 @@ library OrderBookLibrary {
             amountBaseFix = (reserveQuote.mul(10 ** baseDecimal).div(targetPrice)
             .sub(reserveQuote.mul(10 ** baseDecimal).div(curPrice)));
             amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
-            require(_amountLeft >= amountBaseFix, "HybridX OrderBook: Not Enough Input Amount");
+            require(_amountLeft >= amountBaseFix, "Not Enough Input Amount");
             (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
         }
         else {

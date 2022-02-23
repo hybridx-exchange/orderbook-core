@@ -108,14 +108,14 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint _priceStep,
         uint _minAmount)
     external {
-        require(msg.sender == factory, 'HybridX OrderBook: FORBIDDEN'); // sufficient check
-        require(_priceStep >= 1, 'HybridX OrderBook: Price Step Invalid');
-        require(_minAmount >= 1000, 'HybridX OrderBook: Min Amount Invalid');
+        require(msg.sender == factory, 'FORBIDDEN'); // sufficient check
+        require(_priceStep >= 1, 'Price Step Invalid');
+        require(_minAmount >= 1000, 'Min Amount Invalid');
         (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
         require(
             (token0 == _baseToken && token1 == _quoteToken) ||
             (token1 == _baseToken && token0 == _quoteToken),
-            'HybridX OrderBook: Token Pair Invalid');
+            'Token Pair Invalid');
 
         pair = _pair;
         baseToken = _baseToken;
@@ -143,7 +143,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     function _safeTransfer(address token, address to, uint value)
     internal {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR_TRANSFER, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'HybridX OrderBook: TRANSFER_FAILED');
+        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TRANSFER_FAILED');
     }
 
     function _batchTransfer(address token, address[] memory accounts, uint[] memory amounts) internal {
@@ -172,7 +172,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     uint private unlocked = 1;
     modifier lock() {
-        require(unlocked == 1, 'HybridX OrderBook: LOCKED');
+        require(unlocked == 1, 'LOCKED');
         unlocked = 0;
         _;
         unlocked = 1;
@@ -227,7 +227,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     returns (uint orderId) {
         uint[] memory _userOrders = userOrders[user];
-        require(_userOrders.length < 0xff, 'HybridX OrderBook: Order Number is exceeded');
+        require(_userOrders.length < 0xff, 'Order Number is exceeded');
         uint orderIndex = _userOrders.length;
 
         Order memory order = Order(
@@ -453,7 +453,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     function priceStepUpdate(uint newPriceStep) external lock {
         if (msg.sender != OrderBookLibrary.getAdmin(factory)){
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-                'HybridX OrderBook: Order Exist');
+                'Order Exist');
         }
         priceStep = newPriceStep;
     }
@@ -462,7 +462,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     function minAmountUpdate(uint newMinAmount) external lock {
         if (msg.sender != OrderBookLibrary.getAdmin(factory)){
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
-                'HybridX OrderBook: Order Exist');
+                'Order Exist');
         }
         minAmount = newMinAmount;
     }
@@ -470,23 +470,28 @@ contract OrderBookBase is OrderQueue, PriceList {
     //更新协议费率，开放修改需要考虑抢先交易问题，暂时由社区账号管理
     function protocolFeeRateUpdate(uint newProtocolFeeRate) external lock {
         require(msg.sender == OrderBookLibrary.getAdmin(factory),
-            "HybridX OrderBook: Forbidden");
-        require(newProtocolFeeRate <= 30, "HybridX OrderBook: Invalid Fee Rate"); //max fee is 0.3%, default is 0.1%
+            "Forbidden");
+        require(newProtocolFeeRate <= 30, "Invalid Fee Rate"); //max fee is 0.3%, default is 0.1%
         protocolFeeRate = newProtocolFeeRate;
     }
 
     //更新gas补贴费率
     function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external lock {
-        require(msg.sender == OrderBookLibrary.getAdmin(factory),
-            "HybridX OrderBook: Forbidden");
-        require(newSubsidyFeeRate <= 100, "HybridX OrderBook: Invalid Fee Rate"); //max is 100% of protocolFeeRate
+        require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
+        require(newSubsidyFeeRate <= 100, "Invalid Fee Rate"); //max is 100% of protocolFeeRate
         subsidyFeeRate = newSubsidyFeeRate;
     }
 
     //Return funds that were transferred into the contract by mistake
-    function safeRefund(address token, address to) external lock {
-        require(msg.sender == OrderBookLibrary.getAdmin(factory),
-            "HybridX OrderBook: Forbidden");
+    function safeRefund(address token, address payable to) external lock {
+        require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
+        if (token == address(0)) {
+            uint refundBalance = address(this).balance;
+            require(refundBalance > 0, "Insufficient eth balance");
+            to.transfer(refundBalance);
+            return;
+        }
+
         uint balance = IERC20(token).balanceOf(address(this));
         uint refundBalance = balance;
         if (token == baseToken) {

@@ -29,13 +29,13 @@ contract OrderBookFactory is IOrderBookFactory {
 
     //create order book
     function createOrderBook(address baseToken, address quoteToken, uint priceStep, uint minAmount) external {
-        require(baseToken != quoteToken, 'OrderBook: IDENTICAL_ADDRESSES');
+        require(baseToken != quoteToken, 'OF: IDENTICAL_ADDRESSES');
         (address token0, address token1) = baseToken < quoteToken ? (baseToken, quoteToken) : (quoteToken, baseToken);
-        require(token0 != address(0), 'OrderBook: ZERO_ADDRESS');
-        require(getOrderBook[token0][token1] == address(0), 'OrderBook: ORDER_BOOK_EXISTS');
+        require(token0 != address(0), 'OF: ZERO_ADDRESS');
+        require(getOrderBook[token0][token1] == address(0), 'OF: ORDER_BOOK_EXISTS');
 
         address pair = IUniswapV2Factory(pairFactory).getPair(token0, token1);
-        require(pair != address(0), 'OrderBook: TOKEN_PAIR_NOT_EXISTS');
+        require(pair != address(0), 'OF: TOKEN_PAIR_NOT_EXISTS');
         bytes memory bytecode = type(OrderBook).creationCode;
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
         address orderBook;
