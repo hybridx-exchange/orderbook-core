@@ -44,6 +44,35 @@ contract OrderQueue {
         }
     }
 
+    // get the front element
+    function peek(
+        uint direction,
+        uint price)
+    internal
+    view
+    returns (uint data) {
+        uint front = limitOrderQueueFront[direction][price];
+        uint rear = limitOrderQueueRear[direction][price];
+        if (front != rear) {
+            data = limitOrderQueueMap[direction][price][front];
+        }
+    }
+
+    // get the element by index (only used for test)
+    function get(
+        uint direction,
+        uint price,
+        uint index)
+    internal
+    view
+    returns (uint data) {
+        uint front = limitOrderQueueFront[direction][price];
+        uint rear = limitOrderQueueRear[direction][price];
+        if (front+index != rear) {
+            data = limitOrderQueueMap[direction][price][front+index];
+        }
+    }
+
     // del - 调用方保证元素一定存在
     function del(
         uint direction,
@@ -56,7 +85,7 @@ contract OrderQueue {
 
         //将元素从尾往前移，如果只有一个元素不需要进入循环
         uint pre = limitOrderQueueMap[direction][price][front];
-        uint cur;
+        uint cur = pre;
         for (uint i=front+1; i<rear; i++) {
             if (pre == data) {
                 break;

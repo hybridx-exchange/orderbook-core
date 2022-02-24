@@ -2,7 +2,9 @@ pragma solidity >=0.5.0;
 
 import "../interfaces/IOrderBook.sol";
 import "../interfaces/IOrderBookFactory.sol";
+import "../interfaces/IUniswapV2Factory.sol";
 import "../interfaces/IUniswapV2Pair.sol";
+import "./Math.sol";
 import "./SafeMath.sol";
 
 library OrderBookLibrary {
@@ -11,20 +13,43 @@ library OrderBookLibrary {
     uint internal constant LIMIT_BUY = 1;
     uint internal constant LIMIT_SELL = 2;
 
-    //根据价格计算使用amountIn换出的amountOut的数量
-    function getAmountOutWithPrice(uint amountIn, uint price, uint decimal) internal pure returns (uint amountOut){
-        amountOut = amountIn.mul(price) / 10 ** decimal;
+    function getOppositeDirection(uint direction) internal pure returns (uint opposite){
+        if (LIMIT_BUY == direction) {
+            opposite = LIMIT_SELL;
+        }
+        else if (LIMIT_SELL == direction) {
+            opposite = LIMIT_BUY;
+        }
     }
 
-    //根据价格计算换出的amountOut需要使用amountIn的数量
-    function getAmountInWithPrice(uint amountOut, uint price, uint decimal) internal pure returns (uint amountIn){
-        amountIn = amountOut.mul(10 ** decimal) / price;
+    function getAdmin(address factory) internal view returns (address admin){
+        admin = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).admin();
+    }
+
+    function getUniswapV2OrderBookFactory(address factory) internal view returns (address factoryRet){
+        factoryRet = IUniswapV2Factory(IOrderBookFactory(factory).pairFactory()).getOrderBookFactory();
+    }
+
+    //get quote amount with base amount at price --- y = x * p / x_decimal
+    function getQuoteAmountWithBaseAmountAtPrice(uint amountBase, uint price, uint baseDecimal)
+    internal
+    pure
+    returns (uint amountGet) {
+        amountGet = amountBase.mul(price).div(10 ** baseDecimal);
+    }
+
+    //get base amount with quote amount at price --- x = y * x_decimal / p
+    function getBaseAmountWithQuoteAmountAtPrice(uint amountQuote, uint price, uint baseDecimal)
+    internal
+    pure
+    returns (uint amountGet) {
+        amountGet = amountQuote.mul(10 ** baseDecimal).div(price);
     }
 
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
     function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) internal pure returns (uint amountOut) {
-        require(amountIn > 0, 'OrderBookLibrary: INSUFFICIENT_INPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBookLibrary: INSUFFICIENT_LIQUIDITY');
+        require(amountIn > 0, 'INSUFFICIENT_INPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint amountInWithFee = amountIn.mul(997);
         uint numerator = amountInWithFee.mul(reserveOut);
         uint denominator = reserveIn.mul(1000).add(amountInWithFee);
@@ -33,8 +58,8 @@ library OrderBookLibrary {
 
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) internal pure returns (uint amountIn) {
-        require(amountOut > 0, 'OrderBookLibrary: INSUFFICIENT_OUTPUT_AMOUNT');
-        require(reserveIn > 0 && reserveOut > 0, 'OrderBookLibrary: INSUFFICIENT_LIQUIDITY');
+        require(amountOut > 0, 'INSUFFICIENT_OUTPUT_AMOUNT');
+        require(reserveIn > 0 && reserveOut > 0, 'INSUFFICIENT_LIQUIDITY');
         uint numerator = reserveIn.mul(amountOut).mul(1000);
         uint denominator = reserveOut.sub(amountOut).mul(997);
         amountIn = (numerator / denominator).add(1);
@@ -42,108 +67,247 @@ library OrderBookLibrary {
 
     // fetches and sorts the reserves for a pair
     function getReserves(address pair, address tokenA, address tokenB) internal view returns
-    (uint reserveA, uint reserveB) {
-        require(tokenA != tokenB, 'OrderBookLibrary: IDENTICAL_ADDRESSES');
+    (uint112 reserveA, uint112 reserveB) {
+        require(tokenA != tokenB, 'IDENTICAL_ADDRESSES');
         address token0 = tokenA < tokenB ? tokenA : tokenB;
-        require(token0 != address(0), 'OrderBookLibrary: ZERO_ADDRESS');
-        (uint reserve0, uint reserve1,) = IUniswapV2Pair(pair).getReserves();
+        require(token0 != address(0), 'ZERO_ADDRESS');
+        (uint112 reserve0, uint112 reserve1,) = IUniswapV2Pair(pair).getReserves();
         (reserveA, reserveB) = tokenA == token0 ? (reserve0, reserve1) : (reserve1, reserve0);
     }
 
-    //将价格移动到price需要消息的tokenA的数量, 以及新的reserveIn, reserveOut
-    function getAmountForMovePrice(uint direction, uint reserveIn, uint reserveOut, uint price, uint decimal)
-    internal pure returns (uint amountIn, uint amountOut, uint reserveInNew, uint reserveOutNew) {
-        (uint baseReserve, uint quoteReserve) = (reserveIn, reserveOut);
-        if (direction == LIMIT_BUY) {//buy (quoteToken == tokenA)  用tokenA换tokenB
-            (baseReserve, quoteReserve) = (reserveOut, reserveIn);
-            //根据p = y + (1-0.3%) * y' / (1-0.3%) * x 推出 997 * y' = (997 * x * p - 1000 * y), 如果等于0表示不需要移动价格
-            //先计算997 * x * p
-            uint b1 = getAmountOutWithPrice(baseReserve.mul(997), price, decimal);
-            //再计算1000 * y
-            uint q1 = quoteReserve.mul(1000);
-            //再计算y' = (997 * x * p - 1000 * y) / 997
-            amountIn = b1 > q1 ? (b1 - q1) / 997 : 0;
-            //再计算x'
-            amountOut = amountIn != 0 ? getAmountOut(amountIn, reserveIn, reserveOut) : 0;
-            //再更新reserveInNew = reserveIn - x', reserveOutNew = reserveOut + y'
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+    // get lp price
+    function getPrice(uint reserveBase, uint reserveQuote, uint baseDecimal) internal pure returns (uint price){
+        if (reserveBase != 0) {
+            uint d = reserveQuote.mul(10 ** baseDecimal);
+            price = d / reserveBase;
         }
-        else if (direction == LIMIT_SELL) {//sell(quoteToken == tokenB) 用tokenA换tokenB
-            //根据p = x + (1-0.3%) * x' / (1-0.3%) * y 推出 997 * x' = (997 * y * p - 1000 * x), 如果等于0表示不需要移动价格
-            //先计算 y * p * 997
-            uint q1 = getAmountOutWithPrice(quoteReserve.mul(997), price, decimal);
-            //再计算 x * 1000
-            uint b1 = baseReserve.mul(1000);
-            //再计算x' = (997 * y * p - 1000 * x) / 997
-            amountIn = q1 > b1 ? (q1 - b1) / 997 : 0;
-            //再计算y' = (1-0.3%) x' / p
-            amountOut = amountIn != 0 ? getAmountOut(amountIn, reserveIn, reserveOut) : 0;
-            //再更新reserveInNew = reserveIn + x', reserveOutNew = reserveOut - y'
-            (reserveInNew, reserveOutNew) = (reserveIn + amountIn, reserveOut - amountOut);
+    }
+
+    // Make up for the LP price error caused by the loss of precision,
+    // increase the LP price a bit, and ensure that the buy order price is less than or equal to the LP price
+    function getFixAmountForMovePriceUp(uint _amountLeft, uint _amountAmmQuote,
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint baseDecimal)
+    internal pure returns (uint amountLeft, uint amountAmmQuote, uint amountQuoteFix) {
+        uint curPrice = getPrice(reserveBase, reserveQuote, baseDecimal);
+        // y' = x.p2 - x.p1, x does not change, increase y, make the price bigger
+        if (curPrice < targetPrice) {
+            amountQuoteFix = (reserveBase.mul(targetPrice).div(10 ** baseDecimal)
+                .sub(reserveBase.mul(curPrice).div(10 ** baseDecimal)));
+            amountQuoteFix = amountQuoteFix > 0 ? amountQuoteFix : 1;
+            require(_amountLeft >= amountQuoteFix, "Not Enough Output Amount");
+            (amountLeft, amountAmmQuote) = (_amountLeft.sub(amountQuoteFix), _amountAmmQuote + amountQuoteFix);
         }
         else {
-            (amountIn, reserveInNew, reserveOutNew) = (0, reserveIn, reserveOut);
+            (amountLeft, amountAmmQuote) = (_amountLeft, _amountAmmQuote);
         }
     }
 
-    //使用amountA数量的amountInOffer吃掉在价格price, 数量为amountOutOffer的tokenB, 返回实际消耗的tokenA数量和返回的tokenB的数量，amountOffer需要考虑手续费
-    //手续费应该包含在amountOutWithFee中
-    function getAmountOutForTakePrice(uint direction, uint amountInOffer, uint price, uint decimal, uint orderAmount)
-    internal pure returns (uint amountIn, uint amountOutWithFee) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
+    // Make up for the LP price error caused by the loss of precision,
+    // reduce the LP price a bit, and ensure that the order price is greater than or equal to the LP price
+    function getFixAmountForMovePriceDown(uint _amountLeft, uint _amountAmmBase,
+        uint reserveBase, uint reserveQuote, uint targetPrice, uint baseDecimal)
+    internal pure returns (uint amountLeft, uint amountAmmBase, uint amountBaseFix) {
+        uint curPrice = getPrice(reserveBase, reserveQuote, baseDecimal);
+        //x' = y/p1 - y/p2, y is unchanged, increasing x makes the price smaller
+        if (curPrice > targetPrice) {
+            amountBaseFix = (reserveQuote.mul(10 ** baseDecimal).div(targetPrice)
+            .sub(reserveQuote.mul(10 ** baseDecimal).div(curPrice)));
+            amountBaseFix = amountBaseFix > 0 ? amountBaseFix : 1;
+            require(_amountLeft >= amountBaseFix, "Not Enough Input Amount");
+            (amountLeft, amountAmmBase) = (_amountLeft.sub(amountBaseFix), _amountAmmBase + amountBaseFix);
+        }
+        else {
+            (amountLeft, amountAmmBase) = (_amountLeft, _amountAmmBase);
+        }
+    }
+
+    //sqrt(9*y*y + 3988000*x*y*price)
+    function getSection1ForPriceUp(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    internal
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveOut.mul(reserveOut).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
+        (price).div(10**decimal)));
+    }
+
+    //sqrt(9*x*x + 3988000*x*y/price)
+    function getSection1ForPriceDown(uint reserveIn, uint reserveOut, uint price, uint decimal)
+    internal
+    pure
+    returns (uint section1) {
+        section1 = Math.sqrt(reserveIn.mul(reserveIn).mul(9).add(reserveIn.mul(reserveOut).mul(3988000).mul
+        (10**decimal).div(price)));
+    }
+
+    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
+    //amountOut = y-(x+amountIn)*price
+    function getAmountForMovePrice(
+        uint direction,
+        uint amountIn,
+        uint reserveBase,
+        uint reserveQuote,
+        uint price,
+        uint decimal)
+    internal
+    pure
+    returns (uint amountInLeft, uint amountBase, uint amountQuote, uint reserveBaseNew, uint reserveQuoteNew) {
+        if (direction == LIMIT_BUY) {
+            uint section1 = getSection1ForPriceUp(reserveBase, reserveQuote, price, decimal);
+            uint section2 = reserveQuote.mul(1997);
+            amountQuote = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountQuote = amountQuote > amountIn ? amountIn : amountQuote;
+            amountBase = amountQuote == 0 ? 0 : getAmountOut(amountQuote, reserveQuote, reserveBase);
+            (amountInLeft, reserveBaseNew, reserveQuoteNew) =
+                (amountIn - amountQuote, reserveBase - amountBase, reserveQuote + amountQuote);
+        }
+        else if (direction == LIMIT_SELL) {
+            uint section1 = getSection1ForPriceDown(reserveBase, reserveQuote, price, decimal);
+            uint section2 = reserveBase.mul(1997);
+            amountBase = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountBase = amountBase > amountIn ? amountIn : amountBase;
+            amountQuote = amountBase == 0 ? 0 : getAmountOut(amountBase, reserveBase, reserveQuote);
+            (amountInLeft, reserveBaseNew, reserveQuoteNew) =
+                (amountIn - amountBase, reserveBase + amountBase, reserveQuote - amountQuote);
+        }
+        else {
+            (amountInLeft, reserveBaseNew, reserveQuoteNew) = (amountIn, reserveBase, reserveQuote);
+        }
+    }
+
+    //amountIn = (sqrt(9*x*x + 3988000*x*y/price)-1997*x)/1994 = (sqrt(x*(9*x + 3988000*y/price))-1997*x)/1994
+    //amountOut = y-(x+amountIn)*price
+    function getAmountForMovePriceWithAmountOut(
+        uint direction,
+        uint amountOut,
+        uint reserveBase,
+        uint reserveQuote,
+        uint price,
+        uint decimal)
+    internal
+    pure
+    returns (uint amountOutLeft, uint amountBase, uint amountQuote, uint reserveBaseNew, uint reserveQuoteNew) {
+        if (direction == LIMIT_BUY) {
+            uint section1 = getSection1ForPriceUp(reserveBase, reserveQuote, price, decimal);
+            uint section2 = reserveQuote.mul(1997);
+            amountQuote = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountBase = amountQuote == 0 ? 0 : getAmountOut(amountQuote, reserveQuote, reserveBase);
+            if (amountBase > amountOut) {
+                amountBase = amountOut;
+                amountQuote = getAmountIn(amountBase, reserveQuote, reserveBase);
+            }
+            (amountOutLeft, reserveBaseNew, reserveQuoteNew) =
+                (amountOut - amountBase, reserveBase - amountBase, reserveQuote + amountQuote);
+        }
+        else if (direction == LIMIT_SELL) {
+            uint section1 = getSection1ForPriceDown(reserveBase, reserveQuote, price, decimal);
+            uint section2 = reserveBase.mul(1997);
+            amountBase = section1 > section2 ? (section1 - section2).div(1994) : 0;
+            amountQuote = amountBase == 0 ? 0 : getAmountOut(amountBase, reserveBase, reserveQuote);
+            if (amountQuote > amountOut) {
+                amountQuote = amountOut;
+                amountBase = getAmountIn(amountQuote, reserveBase, reserveQuote);
+            }
+            (amountOutLeft, reserveBaseNew, reserveQuoteNew) =
+            (amountOut - amountQuote, reserveBase + amountBase, reserveQuote - amountQuote);
+        }
+        else {
+            (amountOutLeft, reserveBaseNew, reserveQuoteNew) = (amountOut, reserveBase, reserveQuote);
+        }
+    }
+
+    // get the output after taking the order using amountInOffer
+    // The protocol fee should be included in the amountOutWithFee
+    function getAmountOutForTakePrice(
+        uint tradeDir,
+        uint amountInOffer,
+        uint price,
+        uint decimal,
+        uint protocolFeeRate,
+        uint subsidyFeeRate,
+        uint orderAmount)
+    internal pure returns (uint amountInUsed, uint amountOutWithFee, uint communityFee) {
+        uint fee;
+        if (tradeDir == LIMIT_BUY) { //buy (quoteToken == tokenIn, swap quote token to base token)
             //amountOut = amountInOffer / price
-            uint amountOut = getAmountOutWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+            uint amountOut = getBaseAmountWithQuoteAmountAtPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(10000) <= orderAmount.mul(10000-protocolFeeRate)) { //amountOut <= orderAmount * (1-0.3%)
+                amountInUsed = amountInOffer;
+                fee = amountOut.mul(protocolFeeRate).div(10000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;//吃掉所有
+                amountOut = orderAmount.mul(10000-protocolFeeRate).div(10000);
                 //amountIn = amountOutWithoutFee * price
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOutWithoutFee, price, decimal),
-                orderAmount);
+                amountInUsed = getQuoteAmountWithBaseAmountAtPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee.sub(amountOut);
             }
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
-            //amountOut = amountInOffer * price
-            uint amountOut = getAmountInWithPrice(amountInOffer, price, decimal);
-            if (amountOut.mul(1000) <= orderAmount.mul(997)) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (amountInOffer, amountOut);
+        else if (tradeDir == LIMIT_SELL) { //sell (quoteToken == tokenOut, swap base token to quote token)
+            //amountOut = amountInOffer * price ========= match limit buy order
+            uint amountOut = getQuoteAmountWithBaseAmountAtPrice(amountInOffer, price, decimal);
+            if (amountOut.mul(10000) <= orderAmount.mul(10000-protocolFeeRate)) { //amountOut <= orderAmount * (1-0.3%)
+                amountInUsed = amountInOffer;
+                fee = amountOut.mul(protocolFeeRate).div(10000);
+                amountOutWithFee = amountOut + fee;
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;
+                amountOut = orderAmount.mul(10000-protocolFeeRate).div(10000);
                 //amountIn = amountOutWithoutFee / price
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOutWithoutFee, price,
-                    decimal), orderAmount);
+                amountInUsed = getBaseAmountWithQuoteAmountAtPrice(amountOut, price, decimal);
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - amountOut;
             }
         }
+
+        // (fee * 100 - fee * subsidyFeeRate) / 100
+        communityFee = (fee.mul(100).sub(fee.mul(subsidyFeeRate))).div(100);
     }
 
-    //期望获得amountOutExpect，需要投入多少amountIn
-    function getAmountInForTakePrice(uint direction, uint amountOutExpect, uint price, uint decimal, uint orderAmount)
-    internal pure returns (uint amountIn, uint amountOutWithFee) {
-        if (direction == LIMIT_BUY) { //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc)
-            uint amountOut = amountOutExpect.mul(997) / 1000;
-            if (amountOut <= orderAmount) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOut, price, decimal), amountOutExpect);
+    //get the input after taking the order with amount out
+    function getAmountInForTakePrice(
+        uint tradeDir,
+        uint amountOutExpect,
+        uint price,
+        uint decimal,
+        uint protocolFeeRate,
+        uint subsidyFeeRate,
+        uint orderAmount)
+    internal pure returns (uint amountIn, uint amountOutWithFee, uint communityFee) {
+        uint fee;
+        //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc) for take sell limit order
+        if (tradeDir == LIMIT_BUY) {
+            uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
+            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - orderAmountWithoutFee;
+                amountIn = getQuoteAmountWithBaseAmountAtPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;//吃掉所有
+                amountOutWithFee = amountOutExpect;
+                uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
+                fee = amountOutWithFee - amountOutWithoutFee;
                 //amountIn = amountOutWithoutFee * price
-                (amountIn, amountOutWithFee) = (getAmountOutWithPrice(amountOutWithoutFee, price, decimal),
-                orderAmount);
+                amountIn = getQuoteAmountWithBaseAmountAtPrice(amountOutWithoutFee, price, decimal);
             }
         }
-        else if (direction == LIMIT_SELL) { //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc)
-            uint amountOut = amountOutExpect.mul(997) / 1000;
-            if (amountOut <= orderAmount) { //只吃掉一部分: amountOut > amountOffer * (1-0.3%)
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOut, price, decimal), amountOutExpect);
+        //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc) for take buy limit order
+        else if (tradeDir == LIMIT_SELL) {
+            uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
+            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
+                amountOutWithFee = orderAmount;
+                fee = amountOutWithFee - orderAmountWithoutFee;
+                amountIn = getBaseAmountWithQuoteAmountAtPrice(orderAmountWithoutFee, price, decimal);
             }
             else {
-                uint amountOutWithoutFee = orderAmount.mul(997) / 1000;
-                //amountIn = amountOutWithoutFee / price
-                (amountIn, amountOutWithFee) = (getAmountInWithPrice(amountOutWithoutFee, price,
-                    decimal), orderAmount);
+                amountOutWithFee = amountOutExpect;
+                uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
+                fee = amountOutWithFee - amountOutWithoutFee;
+                amountIn = getBaseAmountWithQuoteAmountAtPrice(amountOutWithoutFee, price, decimal);
             }
         }
+
+        // (fee * 100 - fee * subsidyFeeRate) / 100
+        communityFee = (fee.mul(100).sub(fee.mul(subsidyFeeRate))).div(100);
     }
 }

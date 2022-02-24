@@ -1,6 +1,9 @@
 pragma solidity =0.5.16;
 
 contract PriceList {
+    uint internal constant LIMIT_BUY = 1;
+    uint internal constant LIMIT_SELL = 2;
+
     //每一个位置对应一个价格数组(方向 -> 价格 -> 下一个价格) 需要对价格排序 （索引表示价格在map中的顺序）
     mapping(uint => mapping(uint => uint)) private limitOrderPriceListMap;
     //每一个位置对应一个价格(方向 -> 长度) （用于遍历所有价格时的边界）
@@ -24,7 +27,7 @@ contract PriceList {
     returns (uint preIndex, uint next) {
         preIndex = 0;
         next = limitOrderPriceListMap[direction][0];
-        if (direction == 1) { //由大到小排列
+        if (direction == LIMIT_BUY) { //由大到小排列
             while(next > price) {
                 preIndex = next;
                 next = limitOrderPriceListMap[direction][next];
@@ -33,7 +36,7 @@ contract PriceList {
                 }
             }
         }
-        else if (direction == 2) {//由小到大排列
+        else if (direction == LIMIT_SELL) {//由小到大排列
             while(next < price) {
                 preIndex = next;
                 next = limitOrderPriceListMap[direction][next];
@@ -80,5 +83,15 @@ contract PriceList {
     view
     returns (uint next) {
         next = limitOrderPriceListMap[direction][cur];
+    }
+
+    function nextPrice2(
+        uint direction,
+        uint cur) //从0开始获取下一个价格，next为0时再取一次第一个，兼容从头按顺序遍历时删除已遍历的元素，为0则表示没有链表为空
+    internal
+    view
+    returns (uint next) {
+        next = limitOrderPriceListMap[direction][cur];
+        next = next == 0 ? limitOrderPriceListMap[direction][0] : next;
     }
 }

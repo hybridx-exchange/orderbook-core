@@ -1,6 +1,9 @@
 pragma solidity =0.5.16;
 
 import "./interfaces/IERC20.sol";
+import "./libraries/UQ112x112.sol";
+import "./interfaces/IWETH.sol";
+import './libraries/TransferHelper.sol';
 import "./libraries/OrderBookLibrary.sol";
 import "./OrderQueue.sol";
 import "./PriceList.sol";
@@ -8,6 +11,7 @@ import "./PriceList.sol";
 contract OrderBookBase is OrderQueue, PriceList {
     using SafeMath for uint;
     using SafeMath for uint112;
+    using UQ112x112 for uint224;
 
     struct Order {
         address owner;
@@ -23,9 +27,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     bytes4 private constant SELECTOR_TRANSFER = bytes4(keccak256(bytes('transfer(address,uint256)')));
 
     //名称
-    string public constant name = 'Uniswap V2 OrderBook';
-    uint internal constant LIMIT_BUY = 1;
-    uint internal constant LIMIT_SELL = 2;
+    string public constant name = 'HybridX OrderBook';
 
     //order book factory
     address public factory;
@@ -35,18 +37,26 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //价格间隔参数-保证价格间隔的设置在一个合理的范围内
     uint public priceStep;
-    //最小数量
+    //最小计价货币数量
     uint public minAmount;
-    //价格小数点位数
-    uint public priceDecimal;
+    //基准代币小数点位数，用于通过价格计算数量
+    uint public baseDecimal;
 
     //基础货币
     address public baseToken;
     //记价货币
     address public quoteToken;
 
-    uint internal baseBalance;
-    uint internal quoteBalance;
+    //基础货币余额
+    uint public baseBalance;
+    //计价货币余额
+    uint public quoteBalance;
+
+    //protocol fee rate (按交易量百分比收取，对应万分之x)
+    uint public protocolFeeRate;
+
+    //subsidy fee rate (从协议费用中抽取一部分用于补贴吃单方，对应protocolFeeRate * x%)
+    uint public subsidyFeeRate;
 
     //未完成总订单，链上不保存已成交的订单(订单id -> Order)
     mapping(uint => Order) public marketOrders;
@@ -59,6 +69,14 @@ contract OrderBookBase is OrderQueue, PriceList {
         address indexed to,
         uint amountOffer,
         uint amountRemain,
+        uint price,
+        uint);
+
+    event OrderUpdate(
+        address indexed owner,
+        address indexed to,
+        uint amountOffer,
+        uint amountUsed,
         uint price,
         uint);
 
@@ -90,32 +108,71 @@ contract OrderBookBase is OrderQueue, PriceList {
         uint _priceStep,
         uint _minAmount)
     external {
-        require(msg.sender == factory, 'UniswapV2 OrderBook: FORBIDDEN'); // sufficient check
-        require(_priceStep >= 1, 'UniswapV2 OrderBook: Price Step Invalid');
-        require(_minAmount >= 1, 'UniswapV2 OrderBook: Min Amount Invalid');
+        require(msg.sender == factory, 'FORBIDDEN'); // sufficient check
+        require(_priceStep >= 1, 'Price Step Invalid');
+        require(_minAmount >= 1000, 'Min Amount Invalid');
         (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
         require(
             (token0 == _baseToken && token1 == _quoteToken) ||
             (token1 == _baseToken && token0 == _quoteToken),
-            'UniswapV2 OrderBook: Token Pair Invalid');
+            'Token Pair Invalid');
 
         pair = _pair;
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         priceStep = _priceStep;
-        priceDecimal = IERC20(_quoteToken).decimals();
+        baseDecimal = IERC20(_baseToken).decimals();
         minAmount = _minAmount;
+        protocolFeeRate = 30; // 30/10000
+        subsidyFeeRate = 50; // protocolFeeRate * 50%
+    }
+
+    function _getBaseBalance() internal view returns (uint balance) {
+        balance = IERC20(baseToken).balanceOf(address(this));
+    }
+
+    function _getQuoteBalance() internal view returns (uint balance) {
+        balance = IERC20(quoteToken).balanceOf(address(this));
+    }
+
+    function _updateBalance() internal {
+        baseBalance = IERC20(baseToken).balanceOf(address(this));
+        quoteBalance = IERC20(quoteToken).balanceOf(address(this));
     }
 
     function _safeTransfer(address token, address to, uint value)
     internal {
         (bool success, bytes memory data) = token.call(abi.encodeWithSelector(SELECTOR_TRANSFER, to, value));
-        require(success && (data.length == 0 || abi.decode(data, (bool))), 'UniswapV2 OrderBook: TRANSFER_FAILED');
+        require(success && (data.length == 0 || abi.decode(data, (bool))), 'TRANSFER_FAILED');
+    }
+
+    function _batchTransfer(address token, address[] memory accounts, uint[] memory amounts) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        for(uint i=0; i<accounts.length; i++) {
+            if (WETH == token){
+                IWETH(WETH).withdraw(amounts[i]);
+                TransferHelper.safeTransferETH(accounts[i], amounts[i]);
+            }
+            else {
+                _safeTransfer(token, accounts[i], amounts[i]);
+            }
+        }
+    }
+
+    function _singleTransfer(address token, address to, uint amount) internal {
+        address WETH = IOrderBookFactory(factory).WETH();
+        if (token == WETH) {
+            IWETH(WETH).withdraw(amount);
+            TransferHelper.safeTransferETH(to, amount);
+        }
+        else{
+            _safeTransfer(token, to, amount);
+        }
     }
 
     uint private unlocked = 1;
     modifier lock() {
-        require(unlocked == 1, 'UniswapV2 OrderBook: LOCKED');
+        require(unlocked == 1, 'LOCKED');
         unlocked = 0;
         _;
         unlocked = 1;
@@ -130,25 +187,26 @@ contract OrderBookBase is OrderQueue, PriceList {
         return orderIdGenerator;
     }
 
-    function getReserves()
-    internal
-    view
-    returns (uint112 reserveBase, uint112 reserveQuote, uint32 blockTimestampLast) {
-        (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) = IUniswapV2Pair(pair).getReserves();
-        reserveBase = baseToken == IUniswapV2Pair(pair).token0() ? _reserve0 : _reserve1;
-        reserveQuote = reserveBase == _reserve0 ? _reserve1 : _reserve0;
-        blockTimestampLast = _blockTimestampLast;
+    function getUserOrders(address user) external view returns (uint[] memory orderIds) {
+        orderIds = userOrders[user];
     }
 
     function getPrice()
-    internal
+    public
     view
-    returns (uint price){
-        (uint112 reserveBase, uint112 reserveQuote,) = getReserves();
-        if (reserveBase != 0){
-            uint d = reserveQuote.mul(10 ** priceDecimal);
+    returns (uint price) {
+        (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
+        if (reserveBase != 0) {
+            uint d = reserveQuote.mul(10 ** baseDecimal);
             price = d / reserveBase;
         }
+    }
+
+    function priceDecimal()
+    public
+    view
+    returns (uint decimal) {
+        decimal = IERC20(quoteToken).decimals();
     }
 
     function tradeDirection(address tokenIn)
@@ -169,16 +227,16 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     returns (uint orderId) {
         uint[] memory _userOrders = userOrders[user];
-        require(_userOrders.length < 0xff, 'UniswapV2 OrderBook: Order Number is exceeded');
+        require(_userOrders.length < 0xff, 'Order Number is exceeded');
         uint orderIndex = _userOrders.length;
 
         Order memory order = Order(
             user,
             _to,
             _generateOrderId(),
+            _price,
             _amountOffer,
             _amountRemain,
-            _price,
             _type,
             orderIndex);
         userOrders[user].push(order.orderId);
@@ -194,23 +252,46 @@ contract OrderBookBase is OrderQueue, PriceList {
     }
 
     //删除order对象
+    function _removeFrontLimitOrderOfQueue(Order memory order) internal {
+        // pop order from queue of same price
+        pop(order.orderType, order.price);
+        // delete order from market orders
+        delete marketOrders[order.orderId];
+
+        // delete user order
+        uint userOrderSize = userOrders[order.owner].length;
+        require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+        //overwrite the current element with the last element directly
+        uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+        userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+        //update moved order's index
+        marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+        // delete the last element of user order list
+        userOrders[order.owner].pop();
+
+        //delete price
+        if (length(order.orderType, order.price) == 0){
+            delPrice(order.orderType, order.price);
+        }
+    }
+
+    //删除order对象
     function _removeLimitOrder(Order memory order) internal {
+        //删除队列订单
+        del(order.orderType, order.price, order.orderId);
         //删除全局订单
         delete marketOrders[order.orderId];
 
-        //删除用户订单
-        uint[] memory _userOrders = userOrders[order.owner];
-        require(_userOrders.length > order.orderIndex, 'invalid orderIndex');
-        //直接用最后一个元素覆盖当前元素
-        if (order.orderIndex != _userOrders.length - 1) {
-            _userOrders[order.orderIndex] = _userOrders[_userOrders.length - 1];
-        }
-
-        //删除用户订单
+        // delete user order
+        uint userOrderSize = userOrders[order.owner].length;
+        require(userOrderSize > order.orderIndex, 'invalid orderIndex');
+        //overwrite the current element with the last element directly
+        uint lastUsedOrder = userOrders[order.owner][userOrderSize - 1];
+        userOrders[order.owner][order.orderIndex] = lastUsedOrder;
+        //update moved order's index
+        marketOrders[lastUsedOrder].orderIndex = order.orderIndex;
+        // delete the last element of user order list
         userOrders[order.owner].pop();
-
-        //删除队列订单
-        del(order.orderType, order.price, order.orderId);
 
         //删除价格
         if (length(order.orderType, order.price) == 0){
@@ -249,6 +330,19 @@ contract OrderBookBase is OrderQueue, PriceList {
         }
     }
 
+    // total amount
+    function totalOrderAmount(uint direction)
+    internal
+    view
+    returns (uint amount)
+    {
+        uint curPrice = nextPrice(direction, 0);
+        while(curPrice != 0){
+            amount += listAgg(direction, curPrice);
+            curPrice = nextPrice(direction, curPrice);
+        }
+    }
+
     //订单薄，不关注订单具体信息，只用于查询
     function marketBook(
         uint direction,
@@ -274,17 +368,33 @@ contract OrderBookBase is OrderQueue, PriceList {
     function rangeBook(uint direction, uint price)
     external
     view
-    returns (uint[] memory prices, uint[] memory amounts){
-        uint priceLength = priceLength(direction);
-        prices = new uint[](priceLength);
-        amounts = new uint[](priceLength);
+    returns (uint[] memory prices, uint[] memory amounts) {
         uint curPrice = nextPrice(direction, 0);
-        uint32 index = 0;
-        while(curPrice != 0 && curPrice <= price){
-            prices[index] = curPrice;
-            amounts[index] = listAgg(direction, curPrice);
-            curPrice = nextPrice(direction, curPrice);
-            index++;
+        uint priceLength;
+        if (direction == LIMIT_BUY) {
+            while(curPrice != 0 && curPrice >= price){
+                curPrice = nextPrice(direction, curPrice);
+                priceLength++;
+            }
+        }
+        else if (direction == LIMIT_SELL) {
+            while(curPrice != 0 && curPrice <= price){
+                curPrice = nextPrice(direction, curPrice);
+                priceLength++;
+            }
+        }
+
+        if (priceLength > 0) {
+            prices = new uint[](priceLength);
+            amounts = new uint[](priceLength);
+            curPrice = nextPrice(direction, 0);
+            uint index;
+            while(index < priceLength) {
+                prices[index] = curPrice;
+                amounts[index] = listAgg(direction, curPrice);
+                curPrice = nextPrice(direction, curPrice);
+                index++;
+            }
         }
     }
 
@@ -327,5 +437,80 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint next, uint amount) {
         next = nextPrice(direction, cur);
         amount = listAgg(direction, next);
+    }
+
+    function nextBook2(
+        uint direction,
+        uint cur)
+    internal
+    view
+    returns (uint next, uint amount) {
+        next = nextPrice2(direction, cur);
+        amount = listAgg(direction, next);
+    }
+
+    //更新价格间隔，需要考虑抢先交易的问题
+    function priceStepUpdate(uint newPriceStep) external lock {
+        if (msg.sender != OrderBookLibrary.getAdmin(factory)){
+            require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+                'Order Exist');
+        }
+        priceStep = newPriceStep;
+    }
+
+    //更新最小数量
+    function minAmountUpdate(uint newMinAmount) external lock {
+        if (msg.sender != OrderBookLibrary.getAdmin(factory)){
+            require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
+                'Order Exist');
+        }
+        minAmount = newMinAmount;
+    }
+
+    //更新协议费率，开放修改需要考虑抢先交易问题，暂时由社区账号管理
+    function protocolFeeRateUpdate(uint newProtocolFeeRate) external lock {
+        require(msg.sender == OrderBookLibrary.getAdmin(factory),
+            "Forbidden");
+        require(newProtocolFeeRate <= 30, "Invalid Fee Rate"); //max fee is 0.3%, default is 0.1%
+        protocolFeeRate = newProtocolFeeRate;
+    }
+
+    //更新gas补贴费率
+    function subsidyFeeRateUpdate(uint newSubsidyFeeRate) external lock {
+        require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
+        require(newSubsidyFeeRate <= 100, "Invalid Fee Rate"); //max is 100% of protocolFeeRate
+        subsidyFeeRate = newSubsidyFeeRate;
+    }
+
+    //Return funds that were transferred into the contract by mistake
+    function safeRefund(address token, address payable to) external lock {
+        require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
+        if (token == address(0)) {
+            uint refundBalance = address(this).balance;
+            require(refundBalance > 0, "Insufficient eth balance");
+            to.transfer(refundBalance);
+            return;
+        }
+
+        uint balance = IERC20(token).balanceOf(address(this));
+        uint refundBalance = balance;
+        if (token == baseToken) {
+            uint orderBalance = totalOrderAmount(LIMIT_SELL);
+            refundBalance = balance > orderBalance ? balance - orderBalance : 0;
+        }
+        else if (token == quoteToken) {
+            uint orderBalance = totalOrderAmount(LIMIT_BUY);
+            refundBalance = balance > orderBalance ? balance - orderBalance : 0;
+        }
+
+        require(refundBalance > 0, "Insufficient balance");
+        _safeTransfer(token, to, refundBalance);
+    }
+
+    function getReserves()
+    external
+    view
+    returns (uint112 reserveBase, uint112 reserveQuote) {
+        (reserveBase, reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
     }
 }
