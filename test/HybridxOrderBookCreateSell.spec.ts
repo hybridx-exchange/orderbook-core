@@ -228,4 +228,22 @@ describe('HybridxOrderBook', () => {
                 LIMIT_BUY);
     })*/
 
+    // SWAP - ORDERBOOK 误差测算
+    /*it('createSellLimitOrder：SWAP - ORDERBOOK ', async () => {
+        console.log('误差测算：SWAP - ORDERBOOK: B - outB = A + inA')
+
+        // [inA=1, A=5, B=10, outB='1662497915624478906'] 原始有
+        // B - outB = A + inA
+        // 10 - 1662497915624478906 / 1 + 5
+
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
+
+        await balancePrint()
+        await pairInfo()
+        // 8337502084375521094
+    })*/
+
+    //  TODO 费率测试
+
 })

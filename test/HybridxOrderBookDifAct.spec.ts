@@ -9,23 +9,12 @@ import {bigNumberify} from "ethers/utils";
 
 chai.use(solidity)
 
-let TEST_ADDRESSES: [string, string] = [
-    '0x1000000000000000000000000000000000000000',
-    '0x2000000000000000000000000000000000000000'
-]
-
 describe('HybridxOrderBook', () => {
     const provider = new MockProvider({
         hardfork: 'istanbul',
         mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
         gasLimit: 59999999
     })
-
-    const TOTAL_SUPPLY = expandTo18Decimals(10000)
-
-    const overrides = {
-        gasLimit: 59999999
-    }
 
     const LIMIT_BUY = 1;
     const LIMIT_SELL = 2;
@@ -76,22 +65,34 @@ describe('HybridxOrderBook', () => {
         console.log('pair price Library：', pairPriceLibrary.toString())
     }
 
-    async function getUserOrders() {
+    async function getWalletOrders() {
         let num = await orderBook.getUserOrders(wallet.address)
         let i = 1
         for (const o of num) {
             console.log('user orders：', i++)
-
-            let [a, b, c, d, e, f, g, h] = await orderBook.marketOrder(o)
-            console.log('o.owner:', a.toString())
-            console.log('o.to:', b.toString())
-            console.log('o.orderId:', c.toString())
-            console.log('o.price:', d.toString())
-            console.log('o.amountOffer:', e.toString())
-            console.log('o.amountRemain:', f.toString())
-            console.log('o.orderType:', g.toString())
-            console.log('o.orderIndex:', h.toString())
+            getOrdersById(o)
         }
+    }
+
+    async function getOtherOrders() {
+        let num = await orderBook.getUserOrders(other.address)
+        let i = 1
+        for (const o of num) {
+            console.log('other orders：', i++)
+            getOrdersById(o)
+        }
+    }
+
+    async function getOrdersById(o: any) {
+        let [a, b, c, d, e, f, g, h] = await orderBook.marketOrder(o)
+        console.log('order.owner:', a.toString())
+        console.log('order.to:', b.toString())
+        console.log('order.orderId:', c.toString())
+        console.log('order.price:', d.toString())
+        console.log('order.amountOffer:', e.toString())
+        console.log('order.amountRemain:', f.toString())
+        console.log('order.orderType:', g.toString())
+        console.log('order.orderIndex:', h.toString())
     }
 
     async function balancePrint() {
@@ -120,15 +121,28 @@ describe('HybridxOrderBook', () => {
         let priceStep = await orderBook.priceStep();
         console.log('orderBook priceStep：', priceStep.toString())
 
-        // 钱包余额
+        // wallet 钱包余额
         let tokenBaseBalance = await tokenBase.balanceOf(wallet.address)
         let tokenQuoteBalance = await tokenQuote.balanceOf(wallet.address)
         console.log('wallet tokenBase Balance:', tokenBaseBalance.toString())
         console.log('wallet tokenQuote Balance:', tokenQuoteBalance.toString())
+
+        // other 钱包余额
+        let otherTokenBaseBalance = await tokenBase.balanceOf(other.address)
+        let otherTokenQuoteBalance = await tokenQuote.balanceOf(other.address)
+        console.log('other tokenBase Balance:', otherTokenBaseBalance.toString())
+        console.log('other tokenQuote Balance:', otherTokenQuoteBalance.toString())
     }
 
-    //取消订单：限价买订单
+    async function transferToOther() {
+        await tokenQuote.transfer(other.address, expandTo18Decimals(20000))
+        await tokenBase.transfer(other.address, expandTo18Decimals(20000))
+    }
+
+    //取消订单：限价买订单 TODO 取消订单测试失败
     /*it('cancelLimitOrder: one order', async () => {
+        await transferToOther()
+
         // 创建买单
         await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
         await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
@@ -143,17 +157,18 @@ describe('HybridxOrderBook', () => {
                 bigNumberify('749174582596444639'),
                 expandTo18Decimals(3),
                 LIMIT_BUY);
+        await getOrdersById(orderIdBuy)
 
         // 创建卖单
-        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+        await tokenBase.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createSellLimitOrder(other.address, expandTo18Decimals(3), other.address)
         // 获取订单ID
-        let orderIdSell = await orderBook.getUserOrders(wallet.address)
+        let orderIdSell = await orderBook.getUserOrders(other.address)
         // 取消限价买订单
-        await expect(orderBook.cancelLimitOrder(orderIdSell))
+        await expect(orderBook.connect(other).cancelLimitOrder(orderIdSell))
             .to.emit(orderBook, 'OrderCanceled')
-            .withArgs(wallet.address,
-                wallet.address,
+            .withArgs(other.address,
+                other.address,
                 expandTo18Decimals(1),
                 bigNumberify('1000000000000000000'),
                 expandTo18Decimals(3),
@@ -162,35 +177,42 @@ describe('HybridxOrderBook', () => {
 
     // 用户订单
     /*it('userOrders', async () => {
+        await transferToOther()
+
         // 创建1个买单
         await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
         await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
-        // 创建1个卖单
-        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+        expect(await orderBook.userOrders(wallet.address, 0)).to.eq(1)
 
-        await expect(orderBook.userOrders(wallet.address, 1)).to.eq(1);
-        await expect(orderBook.userOrders(wallet.address, 2)).to.eq(2);
+        // 创建1个卖单
+        await tokenBase.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createSellLimitOrder(other.address, expandTo18Decimals(3), other.address)
+        expect(await orderBook.userOrders(other.address, 0)).to.eq(1)
     })*/
 
     // 市场订单
     /*it('marketOrder', async () => {
+        await transferToOther()
+
         await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
         await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
 
-        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+        await tokenBase.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createSellLimitOrder(other.address, expandTo18Decimals(3), other.address)
 
-        await getUserOrders()
+        await getWalletOrders()
+        await getOtherOrders()
     })*/
 
     //市场订单薄
-    /*it('marketBook', async () => {
+    /*it('marketBook、rangeBook', async () => {
+        await transferToOther()
+
         // 2个买单
-        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
-        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
+        await tokenQuote.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createBuyLimitOrder(other.address, expandTo18Decimals(2), other.address)
+        await tokenQuote.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createBuyLimitOrder(other.address, expandTo18Decimals(1), other.address)
         // 10个卖单
         await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
         await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
@@ -219,20 +241,19 @@ describe('HybridxOrderBook', () => {
         await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
         await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(15), wallet.address)
 
-        //console.log("market book LIMIT_BUY:", await orderBook.marketBook(LIMIT_BUY, 10))
+        //订单个数
         let [prices, amounts] = await orderBook.marketBook(LIMIT_BUY, 10)
         await printPricesAmounts('LIMIT_BUY', prices, amounts)
 
-        //console.log("market book LIMIT_SELL:", await orderBook.marketBook(LIMIT_SELL, 10))
         let [ps, as] = await orderBook.marketBook(LIMIT_SELL, 10)
         await printPricesAmounts('LIMIT_SELL', ps, as)
 
         //某个价格范围内的订单薄
         console.log("rangeBook TEST:")
-        let [rangePrices, rangeAmounts] = await orderBook.rangeBook(LIMIT_BUY, 1)
+        let [rangePrices, rangeAmounts] = await orderBook.rangeBook(LIMIT_BUY, expandTo18Decimals(1))
         await printPricesAmounts('rangeBook LIMIT_BUY', rangePrices, rangeAmounts)
 
-        let [rps, ras] = await orderBook.rangeBook(LIMIT_SELL, 10)
+        let [rps, ras] = await orderBook.rangeBook(LIMIT_SELL, expandTo18Decimals(10))
         await printPricesAmounts('rangeBook LIMIT_SELL', rps, ras)
     })*/
 
@@ -246,158 +267,26 @@ describe('HybridxOrderBook', () => {
     }
 
     /*it('getPrice', async () => {
+        await transferToOther()
+
         // 1个买单
         await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
         await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
         // 1个卖单
-        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
-        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+        await tokenBase.connect(other).transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.connect(other).createSellLimitOrder(other.address, expandTo18Decimals(3), other.address)
 
         let price = await orderBook.getPrice()
         console.log("get price:", price.toString())
     })*/
 
-    it('pair', async () => {
-        expect(await orderBook.pair()).to.eq('0x27aFd7eF9f01296dBa5F4d88aC53a9c0e84a5F0f')
-    })
-
-    //价格小数点位数
-    it('priceDecimal', async () => {
-        let priceDecimal = await orderBook.priceDecimal()
-        expect(await orderBook.priceDecimal()).to.eq(18)
-    })
-
-    it('protocolFeeRate', async () => {
-        expect(await orderBook.protocolFeeRate()).to.eq(30)
-    })
-
-    it('subsidyFeeRate', async () => {
-        expect(await orderBook.subsidyFeeRate()).to.eq(50)
-    })
-
-    //基准token -- 比如btc
-    it('baseToken', async () => {
-        expect(await orderBook.baseToken()).to.eq('0xA193E42526F1FEA8C99AF609dcEabf30C1c29fAA')
-    })
-
-    //计价token -- 比如usd
-    it('quoteToken', async () => {
-        expect(await orderBook.quoteToken()).to.eq('0xFDFEF9D10d929cB3905C71400ce6be1990EA0F34')
-    })
-
-    //价格间隔
-    it('priceStep', async () => {
-        expect(await orderBook.priceStep()).to.eq(1000)
-    })
-
-    //更新价格间隔
-    it('priceStepUpdate', async () => {
-        await orderBook.priceStepUpdate(100)
-        expect(await orderBook.priceStep()).to.eq(100)
-    })
-
-    //最小数量
-    it('minAmount', async () => {
-        expect(await orderBook.minAmount()).to.eq(1000)
-    })
-
-    //更新最小数量
-    it('minAmountUpdate', async () => {
-        await orderBook.minAmountUpdate(100)
-        expect(await orderBook.minAmount()).to.eq(100)
-    })
-
-    it('protocolFeeRateUpdate', async () => {
-        await expect(orderBook.connect(other).protocolFeeRateUpdate(10))
-            .to.be.revertedWith('Hybridx OrderBook: Forbidden')
-
-        await orderBook.connect(wallet).protocolFeeRateUpdate(10)
-        expect(await orderBook.protocolFeeRate()).to.eq(10)
-    })
-
-    it('subsidyFeeRateUpdate', async () => {
-        await expect(orderBook.connect(other).subsidyFeeRateUpdate(10))
-            .to.be.revertedWith('Hybridx OrderBook: Forbidden')
-
-        await orderBook.connect(wallet).subsidyFeeRateUpdate(10)
-        expect(await orderBook.subsidyFeeRate()).to.eq(10)
-    })
-
-    /*it('getAmountOutForMovePrice', async () => {
-        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, 0)).to.eq(0)
-        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, 10)).to.eq(19)
-        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, expandTo18Decimals(10)))
-            .to.eq(bigNumberify('6659986639946559786'))
-
-        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, 0)).to.eq(0)
-        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, 10)).to.eq(4)
-        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, expandTo18Decimals(10)))
-            .to.eq(bigNumberify('2496244366549824737'))
-
-        let a = await orderBook.getAmountOut(10, 10, 5)
-        console.log('getAmountOut: ', a.toString())
-        let b = await orderBook.getAmountOut(10, 5, 10)
-        console.log('getAmountOut: ', b.toString())
-
-        // 实际大数
-        const token0Amount = expandTo18Decimals(5)
-        const token1Amount = expandTo18Decimals(10)
-
-        let aa = await orderBook.getAmountOut(expandTo18Decimals(10), token0Amount, token1Amount)
-        console.log('getAmountOut aa: ', aa.toString())
-        let bb = await orderBook.getAmountOut(expandTo18Decimals(10), token1Amount, token0Amount)
-        console.log('getAmountOut bb: ', bb.toString())
-    })*/
-
-    /*it('getAmountInForMovePrice', async () => {
-        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, 0)).to.eq(0)
-        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, 10)).to.eq(21)
-        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, bigNumberify('2496244366549824737')))
-            .to.eq(expandTo18Decimals(10))
-
-        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, 0)).to.eq(0)
-        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, 10)).to.eq(6)
-        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, bigNumberify('6659986639946559786')))
-            .to.eq(bigNumberify('9999999999999999999'))
-
-        // uint amountOut, uint reserveIn, uint reserveOut
-        let a = await orderBook.getAmountIn(1, 10, 5)
-        console.log('getAmountOut: ', a.toString())
-        let b = await orderBook.getAmountIn(1, 5, 10)
-        console.log('getAmountOut: ', b.toString())
-
-        // 实际大数
-        const token0Amount = expandTo18Decimals(50)
-        const token1Amount = expandTo18Decimals(100)
-
-        let aa = await orderBook.getAmountIn(bigNumberify('2496244366549824737'), token0Amount, token1Amount)
-        console.log('getAmountOut aa: ', aa.toString())
-        let bb = await orderBook.getAmountIn(bigNumberify('6659986639946559786'), token1Amount, token0Amount)
-        console.log('getAmountOut bb: ', bb.toString())
-    })*/
-
-    // takeOrderWhenMovePrice 在uniswap中测试
-    it('takeOrderWhenMovePrice', async () => {
-        // 1个买单
-        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
-        let [amountOut, accounts, amounts] = await orderBook.takeOrderWhenMovePrice(wallet.address, expandTo18Decimals(1), wallet.address)
-
-        console.log('amountOut:', amountOut.toString());
-        console.log('accounts:', accounts.toString());
-        console.log('amounts:', amounts.toString());
-
-        // 1、先下单
-
-        // 2、pair
-
-        // (address tokenIn, uint amountIn, address to)
-        // returns (uint amountOut, address[] memory accounts, uint[] memory amounts);
-    })
-
-    // 吃单：swap价格变动吃单
-    // 吃单：orderBook挂买单，create全吃单
-    // 吃单：orderBook挂买单，create部分吃单
-    // 吃单：orderBook挂卖单，create全吃单
-    // 吃单：orderBook挂卖单，create部分吃单
-
+    // 统计：下单、吃单 gas费用
+    //
+    // 有吃单的情况
+    // 没有吃单的情况
+    //
+    // 下多个单的情况
+    // 吃多个单的情况
+    //
+    // gas费用
 })

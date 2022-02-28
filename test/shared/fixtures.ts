@@ -12,6 +12,9 @@ import OrderBook from '../../build/OrderBook.json'
 import WETH from '../../build/WETH9.json'
 import {bigNumberify} from "ethers/utils";
 
+import OrderQueue from '../../build/OrderQueue.json'
+import PriceList from '../../build/PriceList.json'
+
 interface FactoryFixture {
   tokenA: Contract
   tokenB: Contract
@@ -24,8 +27,8 @@ const overrides = {
 }
 
 export async function factoryFixture(_: Web3Provider, [wallet]: Wallet[]): Promise<FactoryFixture> {
-  const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
-  const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(10000)], overrides)
+  const tokenA = await deployContract(wallet, ERC20, [expandTo18Decimals(30000)], overrides)
+  const tokenB = await deployContract(wallet, ERC20, [expandTo18Decimals(30000)], overrides)
   const factory = await deployContract(wallet, UniswapV2Factory, [wallet.address], overrides)
   const weth = await deployContract(wallet, WETH, [], overrides)
   const orderBookFactory = await deployContract(wallet, OrderBookFactory, [factory.address, weth.address], overrides)
