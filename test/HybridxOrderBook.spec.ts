@@ -2,7 +2,7 @@ import chai, {expect} from 'chai'
 import {Contract} from 'ethers'
 import {solidity, MockProvider, createFixtureLoader} from 'ethereum-waffle'
 
-import {expandTo18Decimals} from './shared/utilities'
+import {expandTo18Decimals, printOrder} from './shared/utilities'
 import {orderBookFixture} from './shared/fixtures'
 
 import {bigNumberify} from "ethers/utils";
@@ -58,29 +58,29 @@ describe('HybridxOrderBook', () => {
     async function pairInfo() {
         // balance
         let pairTokenBase = await tokenBase.balanceOf(pair.address)
-        console.log('pair Base tokenA balance：', pairTokenBase.toString())
+        console.log('pair Base tokenA balance:', pairTokenBase.toString())
 
         let pairTokenQuote = await tokenQuote.balanceOf(pair.address)
-        console.log('pair Quote tokenB balance：', pairTokenQuote.toString())
+        console.log('pair Quote tokenB balance:', pairTokenQuote.toString())
 
         // K
         let [reserve0, reserve1] = await pair.getReserves()
         let k = reserve0 * reserve1
-        console.log('pair K：', k.toString())
+        console.log('pair K:', k.toString())
 
-        // 价格
+        // price
         let pairPrice = reserve1 / reserve0
-        console.log('pair price：', pairPrice.toString())
+        console.log('pair price:', pairPrice.toString())
 
         let pairPriceLibrary = await orderBook.getPrice()
-        console.log('pair price Library：', pairPriceLibrary.toString())
+        console.log('pair price Library:', pairPriceLibrary.toString())
     }
 
     async function getUserOrders() {
         let num = await orderBook.getUserOrders(wallet.address)
         let i = 1
         for (const o of num) {
-            console.log('user orders：', i++)
+            console.log('user orders:', i++)
 
             let [a, b, c, d, e, f, g, h] = await orderBook.marketOrder(o)
             console.log('o.owner:', a.toString())
@@ -95,198 +95,235 @@ describe('HybridxOrderBook', () => {
     }
 
     async function balancePrint() {
-        // pair余额
+        // pair balance
         let pairToken0Balance = await token0.balanceOf(pair.address)
         let pairToken1Balance = await token1.balanceOf(pair.address)
-        console.log('pairToken0 balance：', pairToken0Balance.toString())
-        console.log('pairToken1 balance：', pairToken1Balance.toString())
+        console.log('pairToken0 balance:', pairToken0Balance.toString())
+        console.log('pairToken1 balance:', pairToken1Balance.toString())
 
-        // orderBook配置
         let baseBalance = await orderBook.baseBalance();
-        console.log('orderBook baseBalance：', baseBalance.toString())
+        console.log('orderBook baseBalance:', baseBalance.toString())
 
         let quoteBalance = await orderBook.quoteBalance();
-        console.log('orderBook quoteBalance：', quoteBalance.toString())
+        console.log('orderBook quoteBalance:', quoteBalance.toString())
 
         let baseBalanceERC20 = await tokenBase.balanceOf(orderBook.address)
-        console.log('orderBook baseBalance ERC20：', baseBalanceERC20.toString())
+        console.log('orderBook baseBalance ERC20:', baseBalanceERC20.toString())
 
         let quoteBalanceERC20 = await tokenQuote.balanceOf(orderBook.address);
-        console.log('orderBook quoteBalance ERC20：', quoteBalanceERC20.toString())
+        console.log('orderBook quoteBalance ERC20:', quoteBalanceERC20.toString())
 
         let minAmount = await orderBook.minAmount();
-        console.log('orderBook minAmount：', minAmount.toString())
+        console.log('orderBook minAmount:', minAmount.toString())
 
         let priceStep = await orderBook.priceStep();
-        console.log('orderBook priceStep：', priceStep.toString())
+        console.log('orderBook priceStep:', priceStep.toString())
 
-        // 钱包余额
         let tokenBaseBalance = await tokenBase.balanceOf(wallet.address)
         let tokenQuoteBalance = await tokenQuote.balanceOf(wallet.address)
         console.log('wallet tokenBase Balance:', tokenBaseBalance.toString())
         console.log('wallet tokenQuote Balance:', tokenQuoteBalance.toString())
     }
 
-    /*
-    //取消订单：限价买订单
-    it('cancelLimitOrder:BuyLimitOrder', async () => {
-        // function (uint orderId)
-        let orderId = await createBuyLimitOrder(3)
-        console.log("order.orderId :", orderId.toString())
-        let order = await orderBook.getUserOrders(wallet.address)
-        printOrder(order)
-        // 取消限价买订单
-        await orderBook.cancelLimitOrder(orderId)
-        let orderNull = await orderBook.getUserOrders(wallet.address)
-        printOrder(orderNull)
+    it('cancelLimitOrder: one order', async () => {
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
+
+        let orderIdBuy = await orderBook.getUserOrders(wallet.address)
+
+        await expect(orderBook.cancelLimitOrder(orderIdBuy))
+            .to.emit(orderBook, 'OrderCanceled')
+            .withArgs(wallet.address,
+                wallet.address,
+                expandTo18Decimals(3),
+                bigNumberify('3000000000000000000'),
+                expandTo18Decimals(1),
+                LIMIT_BUY);
+
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+
+        let orderIdSell = await orderBook.getUserOrders(wallet.address)
+
+        await expect(orderBook.cancelLimitOrder(orderIdSell))
+            .to.emit(orderBook, 'OrderCanceled')
+            .withArgs(wallet.address,
+                wallet.address,
+                expandTo18Decimals(1),
+                bigNumberify('1000000000000000000'),
+                expandTo18Decimals(3),
+                LIMIT_SELL);
     })
 
-    //取消订单：限价卖订单
-    it('cancelLimitOrder:SellLimitOrder', async () => {
-        // function (uint orderId)
-        let orderId = await createSellLimitOrder(2)
-        console.log("order.orderId :", orderId.toString())
-        let order = await orderBook.getUserOrders(wallet.address)
-        printOrder(order)
-        // 取消限价卖订单
-        await orderBook.cancelLimitOrder(orderId)
-        let orderNull = await orderBook.getUserOrders(wallet.address)
-        printOrder(orderNull)
-    })
-
-    //用户订单
     it('userOrders', async () => {
-        // function (address user, uint index)
-        // 创建1个买单
-        await createBuyLimitOrder(3)
-        // 创建1个卖单
-        await createSellLimitOrder(2)
-        // function (address user, uint index)
-        let orderId = await orderBook.userOrders(wallet.address, 0)
-        console.log("order.orderId :", orderId.toString())
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
 
-        let orderIdSell = await orderBook.userOrders(wallet.address, 1)
-        console.log("order.orderIdSell :", orderIdSell.toString())
-        // returns (uint orderId);
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+
+        expect(await orderBook.userOrders(wallet.address, 0)).to.eq(1);
+        expect(await orderBook.userOrders(wallet.address, 1)).to.eq(2);
     })
 
-    //市场订单
     it('marketOrder', async () => {
-        // function (uint orderId)
-        let orderId = await createBuyLimitOrder(3)
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(3))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
 
-        console.log("market order:", await orderBook.marketOrder(orderId))
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
 
-        //returns (uint[] memory order);
+        await getUserOrders()
     })
 
-    //市场订单薄
     it('marketBook', async () => {
-        // function (uint direction, uint32 maxSize)
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(1), wallet.address)
 
-        console.log("market book LIMIT_BUY:", await orderBook.marketBook(LIMIT_BUY, 10))
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(4), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(5), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(6), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(7), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(8), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(9), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(10), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(11), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(12), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(13), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(14), wallet.address)
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(15), wallet.address)
 
-        console.log("market book LIMIT_SELL:", await orderBook.marketBook(LIMIT_SELL, 10))
-        // returns (uint[] memory prices, uint[] memory amounts);
+        //console.log("market book LIMIT_BUY:", await orderBook.marketBook(LIMIT_BUY, 10))
+        let [prices, amounts] = await orderBook.marketBook(LIMIT_BUY, 10)
+        await printPricesAmounts('LIMIT_BUY', prices, amounts)
+
+        //console.log("market book LIMIT_SELL:", await orderBook.marketBook(LIMIT_SELL, 10))
+        let [ps, as] = await orderBook.marketBook(LIMIT_SELL, 10)
+        await printPricesAmounts('LIMIT_SELL', ps, as)
+
+        console.log("rangeBook TEST:")
+        let [rangePrices, rangeAmounts] = await orderBook.rangeBook(LIMIT_BUY, 1)
+        await printPricesAmounts('rangeBook LIMIT_BUY', rangePrices, rangeAmounts)
+
+        let [rps, ras] = await orderBook.rangeBook(LIMIT_SELL, 10)
+        await printPricesAmounts('rangeBook LIMIT_SELL', rps, ras)
     })
 
-    //某个价格范围内的订单薄
-    it('rangeBook', async () => {
-        // function (uint direction, uint price)
-        console.log("range book LIMIT_BUY:", await orderBook.rangeBook(LIMIT_BUY, 10))
-
-        console.log("range book LIMIT_SELL:", await orderBook.rangeBook(LIMIT_SELL, 10))
-        // returns (uint[] memory prices, uint[] memory amounts);
-    })
+    async function printPricesAmounts(limit: string, prices: [number], amounts: [number]) {
+        for (const p of prices) {
+            console.log(limit, ' price:', p.toString())
+        }
+        for (const a of amounts) {
+            console.log(limit, ' amount:', a.toString())
+        }
+    }
 
     it('getPrice', async () => {
-        // returns (uint price);
-        console.log("range book LIMIT_BUY:", await orderBook.getPrice())
+        await tokenQuote.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createBuyLimitOrder(wallet.address, expandTo18Decimals(2), wallet.address)
+
+        await tokenBase.transfer(orderBook.address, expandTo18Decimals(1))
+        await orderBook.createSellLimitOrder(wallet.address, expandTo18Decimals(3), wallet.address)
+
+        expect(await orderBook.getPrice()).to.eq(expandTo18Decimals(2))
     })
 
     it('pair', async () => {
-        console.log("pair:", await orderBook.pair())
-        // returns (address);
+        expect(await orderBook.pair()).to.eq('0x4d561Eb2278c59AEd5669FaD2d9b5F735d9cf5B4')
     })
 
-    //价格小数点位数
     it('priceDecimal', async () => {
-        console.log("priceDecimal:", await orderBook.priceDecimal())
-        // returns (uint);
+        let priceDecimal = await orderBook.priceDecimal()
+        expect(await orderBook.priceDecimal()).to.eq(18)
     })
 
-    //基准token -- 比如btc
+    it('protocolFeeRate', async () => {
+        expect(await orderBook.protocolFeeRate()).to.eq(30)
+    })
+
+    it('subsidyFeeRate', async () => {
+        expect(await orderBook.subsidyFeeRate()).to.eq(50)
+    })
+
     it('baseToken', async () => {
-        console.log("baseToken:", await orderBook.baseToken())
-        // returns (address);
+        expect(await orderBook.baseToken()).to.eq('0xA193E42526F1FEA8C99AF609dcEabf30C1c29fAA')
     })
 
-    //计价token -- 比如usd
     it('quoteToken', async () => {
-        console.log("quoteToken:", await orderBook.quoteToken())
-        // returns (address);
+        expect(await orderBook.quoteToken()).to.eq('0xFDFEF9D10d929cB3905C71400ce6be1990EA0F34')
     })
 
-    //价格间隔
     it('priceStep', async () => {
-        console.log("priceStep:", await orderBook.priceStep())
-        // returns (uint);
+        expect(await orderBook.priceStep()).to.eq(1000)
     })
 
-    //更新价格间隔
     it('priceStepUpdate', async () => {
-        console.log("priceStepUpdate:", await orderBook.priceStepUpdate())
-        // function (uint newPriceStep)
+        await orderBook.priceStepUpdate(100)
+        expect(await orderBook.priceStep()).to.eq(100)
     })
 
-    //最小数量
     it('minAmount', async () => {
-        console.log("minAmount:", await orderBook.minAmount())
+        expect(await orderBook.minAmount()).to.eq(1000)
     })
 
-    //更新最小数量
     it('minAmountUpdate', async () => {
-        console.log("minAmountUpdate:", await orderBook.minAmountUpdate())
-        // function (uint newMinAmount)
+        await orderBook.minAmountUpdate(100)
+        expect(await orderBook.minAmount()).to.eq(100)
+    })
+
+    it('protocolFeeRateUpdate', async () => {
+        await expect(orderBook.connect(other).protocolFeeRateUpdate(10))
+            .to.be.revertedWith('Forbidden')
+
+        await orderBook.connect(wallet).protocolFeeRateUpdate(10)
+        expect(await orderBook.protocolFeeRate()).to.eq(10)
+    })
+
+    it('subsidyFeeRateUpdate', async () => {
+        await expect(orderBook.connect(other).subsidyFeeRateUpdate(10))
+            .to.be.revertedWith('Forbidden')
+
+        await orderBook.connect(wallet).subsidyFeeRateUpdate(10)
+        expect(await orderBook.subsidyFeeRate()).to.eq(10)
     })
 
     it('getAmountOutForMovePrice', async () => {
-        // function (address tokenIn, uint amountInOffer, uint reserveIn, uint reserveOut)
+        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, 0)).to.eq(0)
+        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, 10)).to.eq(19)
+        expect(await orderBook.getAmountOutForMovePrice(tokenBase.address, expandTo18Decimals(10)))
+            .to.eq(bigNumberify('6659986639946559786'))
 
-        let [amountOutGet, amountInLeft, reserveInRet, reserveOutRet] =
-            await orderBook.getAmountOutForMovePrice(wallet.address, 0, 0, 0)
-
-        expect(amountOutGet).to.eq(0)
-        expect(amountInLeft).to.eq(0)
-        expect(reserveInRet).to.eq(0)
-        expect(reserveOutRet).to.eq(0)
-
-        // returns (uint amountOutGet, uint amountInLeft, uint reserveInRet, uint reserveOutRet);
+        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, 0)).to.eq(0)
+        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, 10)).to.eq(4)
+        expect(await orderBook.getAmountOutForMovePrice(tokenQuote.address, expandTo18Decimals(10)))
+            .to.eq(bigNumberify('2496244366549824737'))
     })
 
     it('getAmountInForMovePrice', async () => {
-        // function (address tokenOut, uint amountOutOffer, uint reserveIn, uint reserveOut)
-        let [amountInGet, amountOutLeft, reserveInRet, reserveOutRet] =
-            await orderBook.getAmountInForMovePrice(wallet.address, 0, 0, 0)
+        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, 0)).to.eq(0)
+        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, 10)).to.eq(21)
+        expect(await orderBook.getAmountInForMovePrice(tokenBase.address, bigNumberify('2496244366549824737')))
+            .to.eq(expandTo18Decimals(10))
 
-        expect(amountInGet).to.eq(0)
-        expect(amountOutLeft).to.eq(0)
-        expect(reserveInRet).to.eq(0)
-        expect(reserveOutRet).to.eq(0)
-        //returns (uint amountInGet, uint amountOutLeft, uint reserveInRet, uint reserveOutRet);
+        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, 0)).to.eq(0)
+        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, 10)).to.eq(6)
+        expect(await orderBook.getAmountInForMovePrice(tokenQuote.address, bigNumberify('6659986639946559786')))
+            .to.eq(bigNumberify('9999999999999999999'))
     })
-
-    it('createOrderBook', async () => {
-        // function (address tokenIn, uint amountIn, address to)
-        console.log("createOrderBook:", await orderBook.getAmountInForMovePrice(wallet.address, 0, wallet.address))
-        // returns (uint amountOutLeft, address[] memory accounts, uint[] memory amounts);
-    })
-
-
-    // 吃单：swap价格变动吃单
-    // 吃单：orderBook挂买单，create全吃单
-    // 吃单：orderBook挂买单，create部分吃单
-    // 吃单：orderBook挂卖单，create全吃单
-    // 吃单：orderBook挂卖单，create部分吃单
-*/
 })
