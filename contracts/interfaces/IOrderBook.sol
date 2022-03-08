@@ -90,13 +90,13 @@ interface IOrderBook {
     function getAmountOutForMovePrice(address tokenIn, uint amountInOffer)
     external
     view
-    returns (uint amountOut);
+    returns (uint amountOut, uint nextReserveBase, uint nextReserveQuote);
 
     //get amount in for move price, include swap and take, and call by uniswap v2 pair
     function getAmountInForMovePrice(address tokenOut, uint amountOutOffer)
     external
     view
-    returns (uint amountIn);
+    returns (uint amountIn, uint nextReserveBase, uint nextReserveQuote);
 
     //take order when move price by uniswap v2 pair
     function takeOrderWhenMovePrice(address tokenIn, uint amountIn, address to)
