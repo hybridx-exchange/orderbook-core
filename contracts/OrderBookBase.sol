@@ -110,7 +110,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     external {
         require(msg.sender == factory, 'FORBIDDEN'); // sufficient check
         require(_priceStep >= 1, 'Price Step Invalid');
-        require(_minAmount >= 1000, 'Min Amount Invalid');
+        require(_minAmount >= 1, 'Min Amount Invalid');
         (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
         require(
             (token0 == _baseToken && token1 == _quoteToken) ||
@@ -455,6 +455,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Order Exist');
         }
+        require(newPriceStep >= 1, 'Price Step Invalid');
         priceStep = newPriceStep;
     }
 
@@ -464,6 +465,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Order Exist');
         }
+        require(newMinAmount >= 1, 'Min Amount Invalid');
         minAmount = newMinAmount;
     }
 

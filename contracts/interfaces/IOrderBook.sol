@@ -58,6 +58,11 @@ interface IOrderBook {
     view
     returns (uint price);
 
+    function getReserves()
+    external
+    view
+    returns (uint112 reserveBase, uint112 reserveQuote);
+
     //get pair address
     function pair() external view returns (address);
 
