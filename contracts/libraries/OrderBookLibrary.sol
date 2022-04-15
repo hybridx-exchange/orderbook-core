@@ -78,8 +78,7 @@ library OrderBookLibrary {
     // get lp price
     function getPrice(uint reserveBase, uint reserveQuote, uint baseDecimal) internal pure returns (uint price){
         if (reserveBase != 0) {
-            uint d = reserveQuote.mul(10 ** baseDecimal);
-            price = d / reserveBase;
+            price = reserveQuote.mul(10 ** baseDecimal) / reserveBase;
         }
     }
 

@@ -197,8 +197,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint price) {
         (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         if (reserveBase != 0) {
-            uint d = reserveQuote.mul(10 ** baseDecimal);
-            price = d / reserveBase;
+            price = reserveQuote.mul(10 ** baseDecimal) / reserveBase;
         }
     }
 
@@ -306,8 +305,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     view
     returns (uint[] memory allData) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         if (front < rear){
             allData = new uint[](rear - front);
             for (uint i=front; i<rear; i++) {
@@ -323,8 +321,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     view
     returns (uint dataAgg) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         for (uint i=front; i<rear; i++){
             dataAgg += marketOrders[limitOrderQueueMap[direction][price][i]].amountRemain;
         }
@@ -489,8 +486,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
         if (token == address(0)) {
             uint refundBalance = address(this).balance;
-            require(refundBalance > 0, "Insufficient eth balance");
-            to.transfer(refundBalance);
+            if (refundBalance > 0) to.transfer(refundBalance);
             return;
         }
 
@@ -505,8 +501,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
 
-        require(refundBalance > 0, "Insufficient balance");
-        _safeTransfer(token, to, refundBalance);
+        if (refundBalance > 0) _safeTransfer(token, to, refundBalance);
     }
 
     function getReserves()

@@ -25,13 +25,12 @@ contract PriceList {
     internal
     view
     returns (uint preIndex, uint next) {
-        preIndex = 0;
-        next = limitOrderPriceListMap[direction][0];
+        (preIndex, next) = (0, limitOrderPriceListMap[direction][0]);
         if (direction == LIMIT_BUY) { //由大到小排列
             while(next > price) {
                 preIndex = next;
                 next = limitOrderPriceListMap[direction][next];
-                if (next == 0){
+                if (next == 0) {
                     break;
                 }
             }
@@ -40,7 +39,7 @@ contract PriceList {
             while(next < price) {
                 preIndex = next;
                 next = limitOrderPriceListMap[direction][next];
-                if (next == 0){
+                if (next == 0) {
                     break;
                 }
             }
