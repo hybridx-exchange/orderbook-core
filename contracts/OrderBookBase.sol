@@ -37,7 +37,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //价格间隔参数-保证价格间隔的设置在一个合理的范围内
     uint public priceStep;
-    //最小计价货币数量
+    //最小基准代币数量
     uint public minAmount;
     //基准代币小数点位数，用于通过价格计算数量
     uint public baseDecimal;

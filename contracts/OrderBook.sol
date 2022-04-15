@@ -293,7 +293,8 @@ contract OrderBook is IOrderBook, OrderBookBase {
         //get input amount of quote token for buy limit order
         uint balance = _getQuoteBalance();
         uint amountOffer = balance > quoteBalance ? balance - quoteBalance : 0;
-        require(amountOffer >= minAmount, 'Amount Invalid');
+        uint minQuoteAmount = OrderBookLibrary.getQuoteAmountWithBaseAmountAtPrice(minAmount, price, baseDecimal);
+        require(amountOffer >= minQuoteAmount, 'Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceUp(amountOffer, price, to);
@@ -321,8 +322,7 @@ contract OrderBook is IOrderBook, OrderBookBase {
         //get input amount of base token for sell limit order
         uint balance = _getBaseBalance();
         uint amountOffer = balance > baseBalance ? balance - baseBalance : 0;
-        uint minQuoteAmount = OrderBookLibrary.getQuoteAmountWithBaseAmountAtPrice(minAmount, price, baseDecimal);
-        require(amountOffer >= minQuoteAmount, 'Amount Invalid');
+        require(amountOffer >= minAmount, 'Amount Invalid');
 
         IUniswapV2Pair(pair).skim(user);
         uint amountRemain = _movePriceDown(amountOffer, price, to);
