@@ -35,8 +35,7 @@ contract OrderQueue {
         uint price)
     internal
     returns (uint data) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         if (front != rear){
             data = limitOrderQueueMap[direction][price][front];
             delete limitOrderQueueMap[direction][price][front];
@@ -51,8 +50,7 @@ contract OrderQueue {
     internal
     view
     returns (uint data) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         if (front != rear) {
             data = limitOrderQueueMap[direction][price][front];
         }
@@ -66,8 +64,7 @@ contract OrderQueue {
     internal
     view
     returns (uint data) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         if (front+index != rear) {
             data = limitOrderQueueMap[direction][price][front+index];
         }
@@ -79,8 +76,7 @@ contract OrderQueue {
         uint price,
         uint data)
     internal {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         require(front < rear, 'Invalid queue');
 
         //将元素从尾往前移，如果只有一个元素不需要进入循环

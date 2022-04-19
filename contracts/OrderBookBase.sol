@@ -37,7 +37,7 @@ contract OrderBookBase is OrderQueue, PriceList {
 
     //价格间隔参数-保证价格间隔的设置在一个合理的范围内
     uint public priceStep;
-    //最小计价货币数量
+    //最小基准代币数量
     uint public minAmount;
     //基准代币小数点位数，用于通过价格计算数量
     uint public baseDecimal;
@@ -110,7 +110,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     external {
         require(msg.sender == factory, 'FORBIDDEN'); // sufficient check
         require(_priceStep >= 1, 'Price Step Invalid');
-        require(_minAmount >= 1000, 'Min Amount Invalid');
+        require(_minAmount >= 1, 'Min Amount Invalid');
         (address token0, address token1) = (IUniswapV2Pair(_pair).token0(), IUniswapV2Pair(_pair).token1());
         require(
             (token0 == _baseToken && token1 == _quoteToken) ||
@@ -197,8 +197,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     returns (uint price) {
         (uint112 reserveBase, uint112 reserveQuote) = OrderBookLibrary.getReserves(pair, baseToken, quoteToken);
         if (reserveBase != 0) {
-            uint d = reserveQuote.mul(10 ** baseDecimal);
-            price = d / reserveBase;
+            price = reserveQuote.mul(10 ** baseDecimal) / reserveBase;
         }
     }
 
@@ -306,8 +305,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     view
     returns (uint[] memory allData) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         if (front < rear){
             allData = new uint[](rear - front);
             for (uint i=front; i<rear; i++) {
@@ -323,8 +321,7 @@ contract OrderBookBase is OrderQueue, PriceList {
     internal
     view
     returns (uint dataAgg) {
-        uint front = limitOrderQueueFront[direction][price];
-        uint rear = limitOrderQueueRear[direction][price];
+        (uint front, uint rear) = (limitOrderQueueFront[direction][price], limitOrderQueueRear[direction][price]);
         for (uint i=front; i<rear; i++){
             dataAgg += marketOrders[limitOrderQueueMap[direction][price][i]].amountRemain;
         }
@@ -455,6 +452,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Order Exist');
         }
+        require(newPriceStep >= 1, 'Price Step Invalid');
         priceStep = newPriceStep;
     }
 
@@ -464,6 +462,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             require(priceLength(LIMIT_BUY) == 0 && priceLength(LIMIT_SELL) == 0,
                 'Order Exist');
         }
+        require(newMinAmount >= 1, 'Min Amount Invalid');
         minAmount = newMinAmount;
     }
 
@@ -487,8 +486,7 @@ contract OrderBookBase is OrderQueue, PriceList {
         require(msg.sender == OrderBookLibrary.getAdmin(factory), "Forbidden");
         if (token == address(0)) {
             uint refundBalance = address(this).balance;
-            require(refundBalance > 0, "Insufficient eth balance");
-            to.transfer(refundBalance);
+            if (refundBalance > 0) to.transfer(refundBalance);
             return;
         }
 
@@ -503,8 +501,7 @@ contract OrderBookBase is OrderQueue, PriceList {
             refundBalance = balance > orderBalance ? balance - orderBalance : 0;
         }
 
-        require(refundBalance > 0, "Insufficient balance");
-        _safeTransfer(token, to, refundBalance);
+        if (refundBalance > 0) _safeTransfer(token, to, refundBalance);
     }
 
     function getReserves()

@@ -19,8 +19,7 @@ contract OrderBookFactory is IOrderBookFactory {
         uint);
 
     constructor(address _factory, address _WETH) public {
-        pairFactory = _factory;
-        WETH = _WETH;
+        (pairFactory, WETH) = (_factory, _WETH);
     }
 
     function allOrderBookLength() external view returns (uint) {
@@ -43,8 +42,7 @@ contract OrderBookFactory is IOrderBookFactory {
             orderBook := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
         IOrderBook(orderBook).initialize(pair, baseToken, quoteToken, priceStep, minAmount);
-        getOrderBook[token0][token1] = orderBook;
-        getOrderBook[token1][token0] = orderBook;
+        (getOrderBook[token0][token1], getOrderBook[token1][token0]) = (orderBook, orderBook);
         allOrderBooks.push(orderBook);
         emit OrderBookCreated(pair, baseToken, quoteToken, orderBook, priceStep, minAmount);
     }
