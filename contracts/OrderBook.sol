@@ -416,10 +416,10 @@ contract OrderBook is IOrderBook, OrderBookBase {
             }
 
             //计算消耗掉一个价格的挂单需要的amountOut数量
-            (uint amountInForTake, uint amountOutWithFee,) = OrderBookLibrary.getAmountInForTakePrice(tradeDir,
-                amountAmmLeft, price, baseDecimal, protocolFeeRate, subsidyFeeRate, amount);
-            amountInGet += amountInForTake;
-            amountOutLeft = amountOutLeft.sub(amountOutWithFee);
+            (uint amountInForTake, uint amountOutWithFee, uint communityFee) = OrderBookLibrary.getAmountInForTakePrice
+                (tradeDir, amountAmmLeft, price, baseDecimal, protocolFeeRate, subsidyFeeRate, amount);
+            amountInGet += amountInForTake.add(1);
+            amountOutLeft = amountOutLeft.sub(amountOutWithFee.sub(communityFee));
             if (amountOutWithFee == amountAmmLeft) {
                 break;
             }

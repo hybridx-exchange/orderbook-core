@@ -155,7 +155,7 @@ library OrderBookLibrary {
             uint section2 = reserveQuote.mul(1997);
             amountQuote = section1 > section2 ? (section1 - section2).div(1994) : 0;
             amountQuote = amountQuote > amountIn ? amountIn : amountQuote;
-            amountBase = amountQuote == 0 ? 0 : getAmountOut(amountQuote, reserveQuote, reserveBase);
+            amountBase = amountQuote == 0 ? 0 : getAmountOut(amountQuote, reserveQuote, reserveBase);//此处重复计算了0.3%的手续费?
             (amountInLeft, reserveBaseNew, reserveQuoteNew) =
                 (amountIn - amountQuote, reserveBase - amountBase, reserveQuote + amountQuote);
         }
@@ -273,40 +273,36 @@ library OrderBookLibrary {
         uint subsidyFeeRate,
         uint orderAmount)
     internal pure returns (uint amountIn, uint amountOutWithFee, uint communityFee) {
-        uint fee;
-        //buy (quoteToken == tokenIn)  用tokenIn（usdc)换tokenOut(btc) for take sell limit order
-        if (tradeDir == LIMIT_BUY) {
-            uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
-            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
-                amountOutWithFee = orderAmount;
-                fee = amountOutWithFee - orderAmountWithoutFee;
-                amountIn = getQuoteAmountWithBaseAmountAtPrice(orderAmountWithoutFee, price, decimal);
-            }
-            else {
-                amountOutWithFee = amountOutExpect;
-                uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
-                fee = amountOutWithFee - amountOutWithoutFee;
-                //amountIn = amountOutWithoutFee * price
-                amountIn = getQuoteAmountWithBaseAmountAtPrice(amountOutWithoutFee, price, decimal);
-            }
+        uint orderProtocolFeeAmount = orderAmount.mul(protocolFeeRate).div(10000);
+        uint orderSubsidyFeeAmount = orderProtocolFeeAmount.mul(subsidyFeeRate).div(100);
+        uint orderAmountWithSubsidyFee = orderAmount.sub(orderProtocolFeeAmount.sub(orderSubsidyFeeAmount));
+        uint amountOutWithoutFee;
+        if (orderAmountWithSubsidyFee <= amountOutExpect) { //take all amount of order
+            amountOutWithFee = orderAmount;
+            communityFee = amountOutWithFee.sub(orderAmountWithSubsidyFee);
+            amountOutWithoutFee = orderAmountWithSubsidyFee.sub(orderSubsidyFeeAmount);
         }
-        //sell (quoteToken == tokenOut) 用tokenIn(btc)换tokenOut(usdc) for take buy limit order
-        else if (tradeDir == LIMIT_SELL) {
-            uint orderAmountWithoutFee = orderAmount.mul(10000-protocolFeeRate).div(10000);
-            if (orderAmountWithoutFee <= amountOutExpect) { //take all amount of order
-                amountOutWithFee = orderAmount;
-                fee = amountOutWithFee - orderAmountWithoutFee;
-                amountIn = getBaseAmountWithQuoteAmountAtPrice(orderAmountWithoutFee, price, decimal);
-            }
-            else {
-                amountOutWithFee = amountOutExpect;
-                uint amountOutWithoutFee = amountOutExpect.mul(10000-protocolFeeRate).div(10000);
-                fee = amountOutWithFee - amountOutWithoutFee;
-                amountIn = getBaseAmountWithQuoteAmountAtPrice(amountOutWithoutFee, price, decimal);
-            }
+        else {
+            orderAmountWithSubsidyFee = amountOutExpect;
+            //amountOutWithFee * (1 - (protocolFeeRate / 10000 * subsidyFeeRate / 100) = orderAmountWithSubsidyFee
+            //=> amountOutWithFee = orderAmountWithSubsidyFee * 1000000 / (1000000 - protocolFeeRate *
+            //subsidyFeeRate)
+            amountOutWithFee = orderAmountWithSubsidyFee.mul(1000000).div(1000000 - protocolFeeRate * subsidyFeeRate);
+            //amountOutWithoutFee = amountOutWithFee * (10000-protocolFeeRate) / 10000
+            //amountOutWithoutFee = (orderAmountWithSubsidyFee * 1000000 / (1000000 - protocolFeeRate *
+            //subsidyFeeRate)) * ((10000 - protocolFeeRate) / 10000)
+            //((orderAmountWithSubsidyFee * 1000000) * (10000 - protocolFeeRate)) / ((1000000 - protocolFeeRate *
+            //subsidyFeeRate) * 10000)
+            amountOutWithoutFee = orderAmountWithSubsidyFee.mul(100).mul(10000 - protocolFeeRate).
+                div(1000000 - protocolFeeRate * subsidyFeeRate);
+            communityFee = amountOutWithFee.sub(orderAmountWithSubsidyFee);
         }
 
-        // (fee * 100 - fee * subsidyFeeRate) / 100
-        communityFee = (fee.mul(100).sub(fee.mul(subsidyFeeRate))).div(100);
+        if (tradeDir == LIMIT_BUY) {
+            amountIn = getQuoteAmountWithBaseAmountAtPrice(amountOutWithoutFee, price, decimal);
+        }
+        else if (tradeDir == LIMIT_SELL) {
+            amountIn = getBaseAmountWithQuoteAmountAtPrice(amountOutWithoutFee, price, decimal);
+        }
     }
 }
